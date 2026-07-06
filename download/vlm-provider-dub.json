@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "### 1. RENDERING CHECK  \n- ✅ Renders correctly: No white/blank screen, broken layout, error overlay, or console errors.  \n\n\n### 2. UI ELEMENTS  \n- Bottom sheet with drag handle (top center, horizontal line).  \n- Title: *\"NOW PLAYING\"* (small text) + *\"Mushoku Tensei: Jobless Reincarnation\"* (large text) + *\"Episode 1\"* (small text).  \n- Segmented control: *\"Subtitled (Sub)\"* (inactive) + *\"Dubbed (Dub)\"* (active, green background).  \n- Provider section header: *\"PROVIDER\"* (label) + *\"4 available\"* (count).  \n- Provider rows (4 total):  \n  1. **BEEP**: Green background, ★ star badge, blue square badge, *\"Soft sub · CC\"* description, green checkmark (selected).  \n  2. **Koto**: ★ star badge, *\"Hard sub\"* description.  \n  3. **Neko**: Blue square badge, *\"Soft sub · CC\"* description.  \n  4. **GG**: No badges, *\"GG\"* description.  \n- Fallback notice: *\"Fallback is ON — If your selected provider fails, the app will try the next one automatically.\"* (bottom).  \n\n\n### 3. DESIGN MATCH  \n- ✅ Dark premium theme: Black background, charcoal cards, emerald-green accent (checkmark, active tab).  \n- ✅ Mobile-first portrait layout: Bottom sheet fits screen, elements aligned vertically.  \n- ✅ Th3-Anime replica: Bottom sheet with Sub/Dub control + provider list + green checkmark.  \n- ✅ DUB tab is **clearly active**: Green background, white text (vs. Sub’s dark background, gray text).  \n\n\n### 4. VISUAL ISSUES  \n- ✅ No layout bugs, overlapping elements, or missing provider rows.  \n- ✅ Color mismatches: None (emerald-green accent consistent, DUB tab highlighted correctly).  \n- ✅ Spacing: Elements are evenly spaced, no overcrowding.  \n- ✅ DUB tab distinction: Clearly active (green background) vs. Sub (dark background).",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1783358067,
+  "id": "202607070114114461cb7ac02b4570",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202607070114114461cb7ac02b4570",
+  "usage": {
+    "completion_tokens": 467,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 872,
+    "prompt_tokens_details": {
+      "cached_tokens": 9
+    },
+    "total_tokens": 1339
+  }
+}

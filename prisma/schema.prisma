@@ -1,0 +1,217 @@
+// AniStream — anime streaming web app schema
+// Provider-agnostic streaming system inspired by Th3-Anime
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  USERS & AUTH
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  myListItems     MyListItem[]
+  watchProgress   WatchProgress[]
+  searchHistory   SearchHistory[]
+  userMirrors     UserMirrorSource[]
+  providerOverrides ProviderOverride[]
+}
+
+// ─────────────────────────────────────────────────────────────
+//  STREAMING PROVIDERS  (the core of the Th3-Anime-style system)
+// ─────────────────────────────────────────────────────────────
+
+// Preset providers (Th3-Anime-style: Koto, Neko, GG, BEEP, VEE, YUKI)
+// Each provider declares what audio modes it supports, what quality
+// options it has, and how to resolve a stream URL for a given episode.
+model Provider {
+  id               String   @id @default(cuid())
+  codename         String   @unique  // e.g. "BEEP", "Koto"
+  displayName      String             // shown in UI
+  description      String             // e.g. "Soft sub · CC"
+  // JSON-encoded arrays (SQLite can't store native lists)
+  badges           String   @default("[]")  // e.g. ["star","cc"]
+  supports         String   @default("[\"sub\",\"dub\"]")  // audio modes
+  qualityOptions   String   @default("[\"auto\",\"1080p\",\"720p\",\"480p\"]")
+  resolverType     String   @default("hls")  // 'hls' | 'mp4' | 'embed' | 'custom'
+  // URL template with {animeId} {ep} {audio} {quality} placeholders,
+  // or empty for 'custom' type that uses resolverFunction
+  resolverEndpoint  String   @default("")
+  // Optional JS function source for 'custom' resolvers
+  resolverFunction String   @default("")
+  sourceAttribution String  @default("")  // shown under title e.g. "anibd.app"
+  isPreset         Boolean  @default(true)
+  // 'ok' | 'degraded' | 'down' — updated by health checker
+  health           String   @default("ok")
+  lastCheckedAt    DateTime?
+  lastError        String?
+  // Lower = preferred in fallback order
+  priority         Int      @default(100)
+  enabled          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  overrides ProviderOverride[]
+}
+
+// User-added custom mirror sources (the "user-supplied" half of the system)
+model UserMirrorSource {
+  id            String   @id @default(cuid())
+  userId        String
+  // User-friendly label
+  label         String
+  // Direct URL or URL template with {animeId} {ep} {audio} {quality}
+  urlTemplate   String
+  resolverType  String   @default("hls")  // 'hls' | 'mp4' | 'embed'
+  supports      String   @default("[\"sub\",\"dub\"]")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Per-user overrides for preset providers (e.g. user supplies their own
+// resolver URL for the "BEEP" preset, or disables a preset they don't like)
+model ProviderOverride {
+  id           String   @id @default(cuid())
+  userId       String
+  providerId   String
+  // If set, replaces the preset's resolverEndpoint
+  customEndpoint String?
+  enabled      Boolean?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, providerId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ANIME CATALOG  (cached AniList/Jikan data)
+// ─────────────────────────────────────────────────────────────
+
+model Anime {
+  id            String   @id @default(cuid())
+  anilistId     Int      @unique
+  malId         Int?
+  titleRomaji   String
+  titleEnglish  String?
+  titleNative   String?
+  synopsis      String?
+  posterUrl     String?
+  bannerUrl     String?
+  format        String?  // TV, MOVIE, OVA, etc.
+  episodes      Int?
+  status        String?  // RELEASING, FINISHED, etc.
+  season        String?  // WINTER, SPRING, SUMMER, FALL
+  seasonYear    Int?
+  averageScore  Int?
+  genres        String   @default("[]")  // JSON array
+  ageRating     String?  // G, PG, PG-13, R, R-17, etc.
+  studios       String   @default("[]")  // JSON array
+  startDate     String?
+  endDate       String?
+  nextEpisodeAiringAt DateTime?
+  nextEpisodeNumber  Int?
+  cachedAt      DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  episodeEntries Episode[]
+  listItems      MyListItem[]
+  watchProgress  WatchProgress[]
+}
+
+model Episode {
+  id           String   @id @default(cuid())
+  animeId      String
+  number       Int
+  title        String?
+  description  String?
+  thumbnailUrl String?
+  duration     Int?     // seconds
+  airDate      DateTime?
+  isFiller     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  anime         Anime   @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  watchProgress WatchProgress[]
+}
+
+// ─────────────────────────────────────────────────────────────
+//  USER LIBRARY
+// ─────────────────────────────────────────────────────────────
+
+model MyListItem {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   String
+  status    String   // WATCHING | WATCHED | PLAN_TO_WATCH | DROPPED | ON_HOLD
+  score     Int?     // 0-100
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+}
+
+model WatchProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  animeId    String
+  episodeId  String
+  episodeNum Int
+  position   Float    @default(0)  // seconds
+  duration   Float?               // seconds
+  completed  Boolean  @default(false)
+  lastWatchedAt DateTime @default(now())
+  // Which provider+audio the user used last for this episode
+  lastProviderId String?
+  lastAudioMode  String   @default("sub")  // 'sub' | 'dub'
+  lastQuality    String   @default("auto")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime   Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  episode Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  query     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SYSTEM HEALTH LOG  (provider health checker results)
+// ─────────────────────────────────────────────────────────────
+
+model ProviderHealthLog {
+  id         String   @id @default(cuid())
+  providerId String
+  status     String   // 'ok' | 'degraded' | 'down'
+  latencyMs  Int?
+  error      String?
+  checkedAt  DateTime @default(now())
+}
