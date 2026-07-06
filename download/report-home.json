@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "### 1. RENDERING  \nThe screen renders correctly. There are no white/blank areas, error messages, or broken images. All visual elements (headers, carousels, posters, text) are fully loaded and visible.  \n\n\n### 2. UI ELEMENTS  \nAll expected UI elements are present:  \n- **Header**: Compact app-style header with the \"AniStream\" logo, page title (\"Watch anime, anywhere\"), and a search icon (magnifying glass) on the right.  \n- **Hero Carousel**: Featured anime (\"Mushoku Tensei: Jobless Reincarnation Season 3\") with title, genre tags (Adventure, Drama, Ecchi, Fantasy), studio (Studio Bind), and action buttons (\"DETAILS\", \"WATCH NOW\").  \n- **Genre Rail**: Horizontal scrolling categories (e.g., \"All\", \"Action\", \"Adventure\") with a right arrow for more options.  \n- **\"Popular This Season\" Section**: Grid of poster cards with anime titles, ratings, and metadata (e.g., \"TV\", \"2026\", episode count).  \n- **Sidebar/Section Lists**:  \n  - \"Top Airing\" (numbered list of airing anime with posters, titles, and ratings).  \n  - \"Just Finished\" (numbered list of recently completed anime).  \n  - \"Top Movies\" (numbered list of top-rated movies).  \n- **Bottom Tab Navigation**: 5 tabs (Home, Browse, Schedule, My List, Settings) with icons and labels.  \n\n\n### 3. NATIVE APP FEEL  \nThe design has a **native mobile app feel**:  \n- Compact header (not oversized like a web hero).  \n- Bottom tab bar (standard for mobile navigation).  \n- Safe area spacing (content does not overlap system UI).  \n- Mobile-sized touch targets (buttons, cards, and tabs are sized for finger taps).  \n- Vertical scrolling (optimized for mobile, not a desktop sidebar layout).  \n\n\n### 4. THEME  \nThe theme is confirmed as **dark** with:  \n- Near-black background (~#080808).  \n- Lavender/purple accent color (~#b5a8ff) used for highlights (e.g., section titles, tab icons, rating stars).  \n\n\n### 5. REAL DATA  \nReal AniList anime titles and posters are visible. Readable titles include:  \n- *Mushoku Tensei: Jobless Reincarnation Season 3* (hero carousel).  \n- *Attack on Titan* (multiple instances in \"Popular This Season\" and \"Top Airing\").  \n- *One Piece* (multiple instances in \"Popular This Season\" and \"Top Airing\").  \n- *Demon Slayer: Kimetsu no Yaiba* (multiple instances).  \n- *My Hero Academia* (multiple instances).  \n- *Naruto* (multiple instances).  \n- *Sword Art Online* (multiple instances).  \n- *Your Name.* (movie section).  \n- *A Silent Voice* (movie section).  \n- *Re:ZERO -Starting Life in Another World- Season 4* (Top Airing).  \n- *Daemons of the Shadow Realm* (Top Airing).  \n- *Detective Conan* (Top Airing).  \n\n\n### 6. ISSUES  \nNo major visual issues are present. All content is fully visible, with no overlap, overflow, or cut-off elements. Layout is consistent, and images load correctly. The design adheres to mobile UI best practices.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1783363074,
+  "id": "202607070237277767752778134e90",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202607070237277767752778134e90",
+  "usage": {
+    "completion_tokens": 733,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 3792,
+    "prompt_tokens_details": {
+      "cached_tokens": 7
+    },
+    "total_tokens": 4525
+  }
+}

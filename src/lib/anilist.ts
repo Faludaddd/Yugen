@@ -312,14 +312,24 @@ export async function getTopMovies(perPage = 10): Promise<Anime[]> {
   return setCached(cacheKey, data.Page.media.map(mapMediaToAnime));
 }
 
-/** Search by title */
-export async function searchAnime(query: string, perPage = 20): Promise<Anime[]> {
-  const trimmed = query.trim();
+/** Search by title.
+ *
+ *  AniList's `SEARCH_MATCH` sort is fuzzy and returns a lot of weak matches
+ *  (e.g. searching "demon slayer" returns "Onigirl" because of shared tags).
+ *  To get accurate results we:
+ *    1. Request a larger pool (perPage=40) using TITLE_MATCH sort (stricter)
+ *    2. Client-side filter: require the query to appear in english/romaji/native title
+ *    3. Sort: exact match first, then starts-with, then contains, then by score
+ */
+export async function searchAnime(query: string, perPage = 30): Promise<Anime[]> {
+  const trimmed = query.trim().toLowerCase();
   if (!trimmed) return [];
   const cacheKey = `search:${trimmed}:${perPage}`;
   const cached = getCached<Anime[]>(cacheKey);
   if (cached) return cached;
 
+  // Use SEARCH_MATCH (AniList's relevance sort) but request a big pool so we
+  // can filter strictly on our side.
   const data = await gql<{ Page: { media: AniListMedia[] } }>(
     `query ($search: String, $perPage: Int) {
       Page(perPage: $perPage, page: 1) {
@@ -328,9 +338,46 @@ export async function searchAnime(query: string, perPage = 20): Promise<Anime[]>
         }
       }
     }`,
-    { search: trimmed, perPage }
+    { search: trimmed, perPage: 40 }
   );
-  return setCached(cacheKey, data.Page.media.map(mapMediaToAnime));
+
+  const all = data.Page.media.map(mapMediaToAnime);
+
+  // Strict client-side filter — title must contain the query (any language)
+  const filtered = all.filter((a) => {
+    const titles = [a.titleEnglish, a.titleRomaji, a.titleNative]
+      .filter(Boolean)
+      .map((t) => t!.toLowerCase());
+    return titles.some((t) => t.includes(trimmed));
+  });
+
+  // Sort: exact match → starts-with → contains → by score
+  const sorted = filtered.sort((a, b) => {
+    const aTitles = [a.titleEnglish, a.titleRomaji, a.titleNative]
+      .filter(Boolean)
+      .map((t) => t!.toLowerCase());
+    const bTitles = [b.titleEnglish, b.titleRomaji, b.titleNative]
+      .filter(Boolean)
+      .map((t) => t!.toLowerCase());
+
+    const aExact = aTitles.some((t) => t === trimmed);
+    const bExact = bTitles.some((t) => t === trimmed);
+    if (aExact !== bExact) return aExact ? -1 : 1;
+
+    const aStarts = aTitles.some((t) => t.startsWith(trimmed));
+    const bStarts = bTitles.some((t) => t.startsWith(trimmed));
+    if (aStarts !== bStarts) return aStarts ? -1 : 1;
+
+    // Prefer ones where query appears in English title (most likely what user typed)
+    const aEnglish = (a.titleEnglish ?? '').toLowerCase().includes(trimmed);
+    const bEnglish = (b.titleEnglish ?? '').toLowerCase().includes(trimmed);
+    if (aEnglish !== bEnglish) return aEnglish ? -1 : 1;
+
+    // Then by popularity (averageScore as proxy)
+    return (b.averageScore ?? 0) - (a.averageScore ?? 0);
+  });
+
+  return setCached(cacheKey, sorted.slice(0, perPage));
 }
 
 /** Browse with pagination + optional genre/sort filters */

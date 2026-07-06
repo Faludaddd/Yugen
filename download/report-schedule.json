@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "### 1. RENDERING  \nThe screen renders **correctly** with no white/blank areas, error messages, or broken layouts. All elements are fully visible and aligned as expected.  \n\n\n### 2. UI ELEMENTS  \n- **Header**: Compact app-style header with the title \"Schedule\" (top-left) and a search icon (top-right). A subtitle \"Weekly airing\" appears below the title.  \n- **Day Selector**: A vertical day-of-week list (MON, TUE, WED, THU, FRI, SAT, SUN) on the left, with the selected day (e.g., \"MON\" for Monday) highlighted.  \n- **Anime List**: For each day, a vertical list of anime entries with:  \n  - Thumbnail image (left).  \n  - Title (e.g., \"ONE PIECE\").  \n  - Episode number (e.g., \"EP 8\").  \n  - Airing time (e.g., \"14:00\" in orange, right-aligned).  \n- **Bottom Tab Bar**: 5 tabs (\"Home\", \"Browse\", \"Schedule\", \"My List\", \"Settings\") with the \"Schedule\" tab highlighted (purple).  \n\n\n### 3. NATIVE APP FEEL  \nThe design **strongly resembles a native mobile app** (not a web calendar) due to:  \n- Compact, app-style header with a search icon.  \n- Vertical day selector (pills) with clear highlighting.  \n- List rows with consistent spacing and thumbnail alignment.  \n- Bottom tab bar (a standard mobile UI pattern).  \n- Safe area (content avoids the bottom of the screen, where the tab bar is).  \n\n\n### 4. THEME  \n- **Background**: Dark (~#080808, near-black).  \n- **Accent Color**: Lavender (~#b5a8ff) for the highlighted \"Schedule\" tab and possibly other interactive elements.  \n\n\n### 5. REAL DATA  \nYes, real AniList anime titles are visible. Examples include:  \n- ONE PIECE  \n- Welcome to Demon School! Iruma-kun Season 3  \n- The 100 Girlfriends Who Really, Really, Really, Really, Really Love You Season 2  \n- Goodbye, Lara  \n- You and I Are Polar Opposites Season 2  \n- THE GHOST IN THE SHELL  \n- Re:ZERO -Starting Life in Another World- Season 3  \n- Ascendance of a Bookworm: Adopted Daughter Enters the Noble Household  \n- That Time I Got Reincarnated as a Slime Season 2  \n- Sparks of Tomorrow  \n- Grand Blue Dreaming Season 3  \n- Daemons of the Shadow Realm  \n- The World's Strongest Rearguard  \n- Smoking Behind the Supermarket with You  \n- Skeleton Knight in Another World Season 2  \n- From Overshadowed to Overpowered: The Ultimate Level-Up  \n- That Time I Got Reincarnated as a Slime Season 2  \n- Mushoku Tensei: Jobless Reincarnation Season 2  \n- Witch Hat Atelier  \n- Saga of Tanya the Evil Season 2  \n- Chainsmoker Cat  \n- BLEACH: Thousand-Year Blood War - The Separation  \n- BLACK TORCH  \n- Clevatess Season 2  \n- Detective Conan  \n- Wistoria: Wand and Sword Season 2  \n- Puella Magi Madoka Magica the Movie - Rebellion  \n- Trapped in a Dating Sim: The World of Otome Games Is Tough for Mobs  \n- LIAR GAME  \n- I Want to Love You Till Your Dying Day  \n- The Exiled Heavy Knight Knows How to Play the Support Role  \n\n\n### 6. ISSUES  \nNo visual issues are present. All elements are properly aligned, times are visible, and there is no overlap. The layout is clean and functional.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1783363047,
+  "id": "202607070237123a7adb63cfed4948",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202607070237123a7adb63cfed4948",
+  "usage": {
+    "completion_tokens": 805,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 2223,
+    "prompt_tokens_details": {
+      "cached_tokens": 10
+    },
+    "total_tokens": 3028
+  }
+}

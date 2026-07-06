@@ -150,17 +150,11 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  }
-  body {
-    max-width: 109rem;
-    margin: 0 auto;
-    padding: 4.5rem 0.6rem 1em;
-  }
-  @media (max-width: 500px) {
-    body {
-      padding: 4rem 0.5rem 0;
-      -webkit-tap-highlight-color: transparent;
-    }
+    /* App-style: no body padding — AppShell handles all spacing */
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
   ::selection {
     color: var(--primary);
