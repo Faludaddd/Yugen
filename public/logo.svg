@@ -1,29 +1,44 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
-<defs>
-  <style type="text/css">
-    .st194{fill:#2D2D2D;stroke:#FFFFFF;stroke-width:0.6317;stroke-miterlimit:10;}
-    .st23{fill:#FFFFFF;}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="yugenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b5a8ff"/>
+      <stop offset="100%" stop-color="#595991"/>
+    </linearGradient>
+    <linearGradient id="yugenGradInner" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d4ccff"/>
+      <stop offset="100%" stop-color="#7a6db8"/>
+    </linearGradient>
+    <radialGradient id="yugenGlow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#b5a8ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#b5a8ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
 
-    .z-breathe {
-      animation: breathe 2.5s ease-in-out infinite;
-    }
+  <!-- Background glow -->
+  <circle cx="256" cy="256" r="240" fill="url(#yugenGlow)"/>
 
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-  </style>
-</defs>
+  <!-- Outer ring (portal) -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="url(#yugenGrad)" stroke-width="14" opacity="0.85"/>
 
-<g>
-  <path class="st194" d="M24.51,28.51H5.49c-2.21,0-4-1.79-4-4V5.49c0-2.21,1.79-4,4-4h19.03c2.21,0,4,1.79,4,4v19.03
-    C28.51,26.72,26.72,28.51,24.51,28.51z"/>
-  <g class="z-breathe">
-    <path class="st23" d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z"/>
-    <polygon class="st23" points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1"/>
-    <path class="st23" d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z"/>
-  </g>
-</g>
+  <!-- Inner crescent moon shape (the "Y" formed by negative space) -->
+  <path d="M 256 96
+           C 200 96 160 140 160 200
+           C 160 240 180 270 210 285
+           C 180 300 160 330 160 370
+           C 160 410 200 416 256 416
+           M 256 96
+           C 312 96 352 140 352 200
+           C 352 240 332 270 302 285
+           C 332 300 352 330 352 370
+           C 352 410 312 416 256 416"
+        fill="none" stroke="url(#yugenGradInner)" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- Play triangle (formed in the center negative space) -->
+  <path d="M 232 200 L 296 256 L 232 312 Z" fill="url(#yugenGrad)" opacity="0.95"/>
+
+  <!-- Top accent dot (the "third eye" / star) -->
+  <circle cx="256" cy="72" r="6" fill="#d4ccff"/>
+
+  <!-- Bottom accent dot -->
+  <circle cx="256" cy="440" r="6" fill="#d4ccff" opacity="0.6"/>
 </svg>

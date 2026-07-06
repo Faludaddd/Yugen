@@ -15,22 +15,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AniStream — Anime Streaming",
-  description: "A premium anime streaming web app with multi-provider source selection, Sub/Dub support, and automatic fallback. Inspired by Th3-Anime.",
-  keywords: ["anime", "streaming", "AniList", "Th3-Anime", "web app"],
-  authors: [{ name: "AniStream" }],
+  title: "Yugen — Anime Stream",
+  description: "Yugen (幽玄) — a profound anime streaming experience. Browse the AniList catalog, watch in HD with Sub/Dub, real airing schedule, and a clean app-style interface.",
+  keywords: ["yugen", "anime", "streaming", "AniList", "anime stream", "watch anime"],
+  authors: [{ name: "Yugen" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
+    apple: "/logo.svg",
   },
   openGraph: {
-    title: "AniStream",
-    description: "Premium anime streaming with multi-provider source selection",
+    title: "Yugen — Anime Stream",
+    description: "A profound anime streaming experience. Browse, watch, and track anime in HD.",
     type: "website",
+    images: ["/logo-lockup.svg"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AniStream",
-    description: "Premium anime streaming with multi-provider source selection",
+    title: "Yugen — Anime Stream",
+    description: "A profound anime streaming experience.",
   },
 };
 

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AniStream — App-style main page.
+ * Yugen — App-style main page.
  *
  * 5 tabs (bottom nav, app feel):
  *   - Home: hero carousel, genre rail, popular this season, grid + sidebar
@@ -173,7 +173,7 @@ export default function Home() {
 
   // Tab metadata
   const tabMeta: Record<AppTab, { title: string; subtitle?: string }> = {
-    home: { title: 'AniStream', subtitle: 'Watch anime, anywhere' },
+    home: { title: 'Yugen', subtitle: 'Watch anime, anywhere' },
     browse: { title: 'Browse', subtitle: `${gridAnime.length || '…'} anime` },
     schedule: { title: 'Schedule', subtitle: 'Weekly airing' },
     list: { title: 'My List', subtitle: 'Your saved anime' },

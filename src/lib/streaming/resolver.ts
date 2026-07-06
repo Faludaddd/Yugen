@@ -84,7 +84,7 @@ export async function resolveStream(
           signal: controller.signal,
           headers: {
             Accept: 'application/json',
-            'User-Agent': 'AniStream/1.0 (+https://github.com/anistream)',
+            'User-Agent': 'Yugen/1.0 (+https://yugen.app)',
           },
         });
         clearTimeout(timeout);

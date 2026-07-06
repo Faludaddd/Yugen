@@ -92,9 +92,12 @@ export function AppShell({
           >
             <div className="mx-auto flex h-12 max-w-[109rem] items-center gap-2 px-3">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <div
-                  className="h-6 w-6 flex-shrink-0 rounded-md"
-                  style={{ background: 'linear-gradient(135deg, #b5a8ff 0%, #595991 100%)' }}
+                {/* Yugen logo mark */}
+                <img
+                  src="/logo.svg"
+                  alt="Yugen"
+                  className="h-7 w-7 flex-shrink-0"
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(181, 168, 255, 0.4))' }}
                 />
                 <div className="min-w-0">
                   <div className="truncate text-[1rem] font-bold leading-tight text-[var(--foreground)]">

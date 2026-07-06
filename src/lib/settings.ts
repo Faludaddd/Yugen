@@ -120,7 +120,7 @@ export const useSettings = create<SettingsState>()(
         }),
     }),
     {
-      name: 'anistream-settings',
+      name: 'yugen-settings',
       version: 1,
     }
   )

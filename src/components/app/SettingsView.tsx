@@ -211,7 +211,7 @@ export function SettingsView() {
 
       {/* ── About ── */}
       <Section title="About" icon={<Heart className="h-4 w-4" />}>
-        <Row label="App name" desc="AniStream">
+        <Row label="App name" desc="Yugen (幽玄)">
           <span className="text-xs text-[var(--muted-foreground)]">v1.0.0</span>
         </Row>
         <Row label="Data source" desc="AniList GraphQL API">
