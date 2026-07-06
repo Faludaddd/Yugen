@@ -33,6 +33,8 @@ interface ResolvedStream {
   quality: string;
   sourceAttribution: string;
   subtitles?: { file: string; label: string }[];
+  introSkip?: { start: number; end: number };
+  outroSkip?: { start: number; end: number };
 }
 
 interface AnikotoSlug {
@@ -228,7 +230,9 @@ async function getServerLinks(
   return links;
 }
 
-async function getIframeUrl(linkId: string): Promise<string | null> {
+async function getIframeUrl(
+  linkId: string
+): Promise<{ url: string; skipData?: { intro: number[]; outro: number[] } } | null> {
   const url = `${ANIKOTO_BASE}/ajax/server?get=${encodeURIComponent(linkId)}`;
   const data = await fetchJson<{
     status: number;
@@ -238,7 +242,7 @@ async function getIframeUrl(linkId: string): Promise<string | null> {
   if (data.status !== 200 || !data.result?.url) {
     return null;
   }
-  return data.result.url;
+  return { url: data.result.url, skipData: data.result.skip_data };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -247,7 +251,8 @@ async function getIframeUrl(linkId: string): Promise<string | null> {
 
 async function getStreamFromIframe(
   iframeUrl: string,
-  audioMode: 'sub' | 'dub'
+  audioMode: 'sub' | 'dub',
+  skipData?: { intro: number[]; outro: number[] }
 ): Promise<ResolvedStream | null> {
   // Fetch the iframe HTML
   const html = await fetchHtml(iframeUrl, ANIKOTO_BASE + '/');
@@ -274,12 +279,28 @@ async function getStreamFromIframe(
   const fileUrl = sourcesData.sources.file;
   const type: 'hls' | 'mp4' = fileUrl.endsWith('.m3u8') || fileUrl.includes('.m3u8') ? 'hls' : 'mp4';
 
+  // Use skip data from sourcesData first, fall back to skipData from server list
+  const introSkip =
+    (sourcesData.intro?.start !== undefined && sourcesData.intro?.end !== undefined && sourcesData.intro.end > 0)
+      ? { start: sourcesData.intro.start, end: sourcesData.intro.end }
+      : (skipData?.intro && skipData.intro.length === 2 && skipData.intro[1] > 0)
+        ? { start: skipData.intro[0], end: skipData.intro[1] }
+        : undefined;
+  const outroSkip =
+    (sourcesData.outro?.start !== undefined && sourcesData.outro?.end !== undefined && sourcesData.outro.end > 0)
+      ? { start: sourcesData.outro.start, end: sourcesData.outro.end }
+      : (skipData?.outro && skipData.outro.length === 2 && skipData.outro[1] > 0)
+        ? { start: skipData.outro[0], end: skipData.outro[1] }
+        : undefined;
+
   return {
     url: fileUrl,
     type,
     quality: 'auto',
     sourceAttribution: 'anikototv.to',
     subtitles: sourcesData.tracks?.map((t) => ({ file: t.file, label: t.label })),
+    introSkip,
+    outroSkip,
   };
 }
 
@@ -336,12 +357,12 @@ export async function resolveAnikotoStream(
 
     for (const link of sortedLinks) {
       try {
-        // Step 6: Get the iframe URL
-        const iframeUrl = await getIframeUrl(link.linkId);
-        if (!iframeUrl) continue;
+        // Step 6: Get the iframe URL + skip data
+        const iframeResult = await getIframeUrl(link.linkId);
+        if (!iframeResult) continue;
 
-        // Step 7: Get the actual stream from the iframe
-        const stream = await getStreamFromIframe(iframeUrl, audioMode);
+        // Step 7: Get the actual stream from the iframe (passing skip data)
+        const stream = await getStreamFromIframe(iframeResult.url, audioMode, iframeResult.skipData);
         if (stream) {
           return stream;
         }

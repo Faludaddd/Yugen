@@ -15,6 +15,7 @@ import { ChevronDown, Server, AlertTriangle, RotateCw, Link2, Play, Info, X } fr
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import type { Provider, Anime, AnimeEpisode, AudioMode, StreamResponse } from '@/lib/streaming/types';
+import { useSettings } from '@/lib/settings';
 
 interface WatchViewProps {
   anime: Anime;
@@ -23,8 +24,9 @@ interface WatchViewProps {
 }
 
 export function WatchView({ anime, episode, onExit }: WatchViewProps) {
+  const { defaultAudio, saveProgress, getProgress } = useSettings();
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [audioMode, setAudioMode] = useState<AudioMode>('sub');
+  const [audioMode, setAudioMode] = useState<AudioMode>(defaultAudio);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [stream, setStream] = useState<StreamResponse['stream'] | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -38,6 +40,10 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
   const [customUrl, setCustomUrl] = useState('');
   const [customUrlPlaying, setCustomUrlPlaying] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+
+  // Get saved progress for this episode (for resume)
+  const savedProgress = getProgress(anime.id, episode.id);
+  const initialPosition = savedProgress?.position && !savedProgress.completed ? savedProgress.position : 0;
 
   // Load preset providers on mount
   useEffect(() => {
@@ -231,6 +237,22 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
               onOpenProviders={() => setSheetOpen(true)}
               onPlaybackError={handlePlaybackError}
               onClose={onExit}
+              initialPosition={initialPosition}
+              onProgress={(position, duration) => {
+                if (duration > 0) {
+                  saveProgress({
+                    animeId: anime.id,
+                    episodeId: episode.id,
+                    episodeNum: episode.number,
+                    position,
+                    duration,
+                    completed: position / duration > 0.95,
+                  });
+                }
+              }}
+              introSkip={(stream as StreamResponse['stream'] & { introSkip?: { start: number; end: number } }).introSkip}
+              outroSkip={(stream as StreamResponse['stream'] & { outroSkip?: { start: number; end: number } }).outroSkip}
+              subtitleTracks={(stream as StreamResponse['stream'] & { subtitles?: { file: string; label: string }[] }).subtitles}
             />
           ) : (
             <div className="flex aspect-video w-full flex-col items-center justify-center p-6 text-center">

@@ -9,9 +9,11 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Star, Calendar, Tv, Clock, Play, Plus } from 'lucide-react';
+import { X, Star, Calendar, Tv, Clock, Play, Plus, Check, ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { Anime, AnimeEpisode } from '@/lib/streaming/types';
+import { useSettings, type ListStatus } from '@/lib/settings';
+import { toast } from 'sonner';
 
 interface AnimeDetailSheetProps {
   open: boolean;
@@ -31,6 +33,30 @@ export function AnimeDetailSheet({
     [anime]
   );
   const [search, setSearch] = useState('');
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const { isInList, addToList, removeFromList, myList } = useSettings();
+
+  // Check if this anime is in the list, and what status
+  const listEntry = myList.find((e) => e.animeId === anime?.id);
+  const inList = Boolean(listEntry);
+
+  const handleToggleList = () => {
+    if (!anime) return;
+    if (inList) {
+      removeFromList(anime.id);
+      toast.success('Removed from your list');
+    } else {
+      addToList(anime.id, 'PLAN_TO_WATCH');
+      toast.success('Added to Plan to Watch');
+    }
+  };
+
+  const handleSetStatus = (status: ListStatus) => {
+    if (!anime) return;
+    addToList(anime.id, status);
+    toast.success(`Moved to ${status.replace(/_/g, ' ')}`);
+    setShowStatusMenu(false);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -194,11 +220,61 @@ export function AnimeDetailSheet({
                   Watch Now
                 </button>
                 <button
-                  className="glass flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold"
+                  onClick={inList ? () => setShowStatusMenu((v) => !v) : handleToggleList}
+                  className="glass relative flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold"
+                  style={inList ? { color: 'var(--primary)', borderColor: 'var(--primary)' } : undefined}
                 >
-                  <Plus className="h-4 w-4" />
-                  My List
+                  {inList ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {listEntry?.status.replace(/_/g, ' ')}
+                      <ChevronDown className="h-3 w-3" />
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      My List
+                    </>
+                  )}
                 </button>
+
+                {/* Status dropdown */}
+                <AnimatePresence>
+                  {showStatusMenu && (
+                    <motion.div
+                      className="absolute bottom-16 right-4 z-50 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 shadow-2xl"
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                    >
+                      {(['WATCHING', 'WATCHED', 'PLAN_TO_WATCH', 'ON_HOLD', 'DROPPED'] as ListStatus[]).map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleSetStatus(status)}
+                          className="block w-full whitespace-nowrap rounded px-3 py-2 text-left text-xs font-medium text-[var(--foreground)] hover:bg-[var(--secondary)]"
+                        >
+                          {status.replace(/_/g, ' ')}
+                          {listEntry?.status === status && (
+                            <Check className="ml-2 inline h-3 w-3 text-[var(--primary)]" />
+                          )}
+                        </button>
+                      ))}
+                      <div className="my-1 border-t border-[var(--border)]" />
+                      <button
+                        onClick={() => {
+                          if (anime) {
+                            removeFromList(anime.id);
+                            toast.success('Removed from your list');
+                          }
+                          setShowStatusMenu(false);
+                        }}
+                        className="block w-full whitespace-nowrap rounded px-3 py-2 text-left text-xs font-medium text-[var(--destructive)] hover:bg-[var(--secondary)]"
+                      >
+                        Remove from list
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Synopsis */}

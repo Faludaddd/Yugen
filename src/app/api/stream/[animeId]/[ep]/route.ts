@@ -100,6 +100,9 @@ export async function GET(
         ...s,
         file: `/api/proxy?url=${encodeURIComponent(s.file)}`,
       })),
+      // Skip timestamps from Anikoto (intro/outro)
+      introSkip: stream.introSkip,
+      outroSkip: stream.outroSkip,
     },
     fallbacksTried: [stream.sourceAttribution],
   });

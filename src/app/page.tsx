@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Flame, TrendingUp, Trophy, Clock3, Film, Bookmark, History as HistoryIcon, Compass } from 'lucide-react';
+import { Flame, TrendingUp, Trophy, Clock3, Film, Bookmark, History as HistoryIcon, Compass, Shuffle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimeCard } from '@/components/anime/AnimeCard';
 import { AnimeDetailSheet } from '@/components/anime/AnimeDetailSheet';
@@ -28,6 +28,9 @@ import { AppShell, type AppTab } from '@/components/app/AppShell';
 import { SearchOverlay } from '@/components/app/SearchOverlay';
 import { SettingsView } from '@/components/app/SettingsView';
 import { ScheduleView as ScheduleTab } from '@/components/app/ScheduleView';
+import { MyListView } from '@/components/app/MyListView';
+import { ContinueWatchingRail } from '@/components/app/ContinueWatchingRail';
+import { ErrorBoundary } from '@/components/app/ErrorBoundary';
 import { useSettings } from '@/lib/settings';
 import { toast } from 'sonner';
 import type { Anime, AnimeEpisode } from '@/lib/streaming/types';
@@ -180,7 +183,38 @@ export default function Home() {
     settings: { title: 'Settings', subtitle: 'Customize your experience' },
   };
 
+  // Resume watching — opens WatchView directly with the saved episode
+  const handleResume = useCallback(async (anime: Anime, episodeId: string, episodeNum: number) => {
+    try {
+      // Fetch full anime + episode list
+      const res = await fetch(`/api/anime/${anime.id}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const d = await res.json();
+      const fullAnime: Anime = d.anime;
+      const episode = fullAnime.episodeEntries?.find((e) => e.number === episodeNum);
+      if (episode) {
+        setWatchingEpisode({ anime: fullAnime, episode });
+      } else {
+        toast.error('Episode not found');
+      }
+    } catch {
+      toast.error('Failed to resume');
+    }
+  }, []);
+
+  // Random anime — pick a random one from the loaded catalog
+  const handleRandomAnime = useCallback(() => {
+    const pool = (data?.trending ?? []).concat(data?.popularSeason ?? []).concat(gridAnime);
+    if (pool.length === 0) {
+      toast.error('No anime available');
+      return;
+    }
+    const random = pool[Math.floor(Math.random() * pool.length)];
+    openAnime(random);
+  }, [data, gridAnime, openAnime]);
+
   return (
+    <ErrorBoundary>
     <AppShell
       activeTab={activeTab}
       onTabChange={setActiveTab}
@@ -204,6 +238,8 @@ export default function Home() {
           gridLoading={gridLoading}
           onSelectAnime={openAnime}
           onWatchDirect={handleWatchDirect}
+          onResume={handleResume}
+          onRandom={handleRandomAnime}
         />
       )}
 
@@ -225,7 +261,7 @@ export default function Home() {
 
       {/* ───── MY LIST TAB ───── */}
       {activeTab === 'list' && (
-        <MyListView />
+        <MyListView onSelectAnime={openAnime} />
       )}
 
       {/* ───── SETTINGS TAB ───── */}
@@ -257,6 +293,7 @@ export default function Home() {
         )}
       </AnimatePresence>
     </AppShell>
+    </ErrorBoundary>
   );
 }
 
@@ -278,6 +315,8 @@ function HomeTab({
   gridLoading,
   onSelectAnime,
   onWatchDirect,
+  onResume,
+  onRandom,
 }: {
   data: HomeData | null;
   loading: boolean;
@@ -292,6 +331,8 @@ function HomeTab({
   gridLoading: boolean;
   onSelectAnime: (a: Anime) => void;
   onWatchDirect: (a: Anime) => void;
+  onResume: (anime: Anime, episodeId: string, episodeNum: number) => void;
+  onRandom: () => void;
 }) {
   if (loading) {
     return (
@@ -311,11 +352,28 @@ function HomeTab({
 
   return (
     <div className="space-y-5">
-      {/* Hero carousel */}
-      <HeroCarousel
-        items={data.trending}
-        onSelect={onSelectAnime}
-        onWatch={onWatchDirect}
+      {/* Hero carousel + Random button row */}
+      <div className="relative">
+        <HeroCarousel
+          items={data.trending}
+          onSelect={onSelectAnime}
+          onWatch={onWatchDirect}
+        />
+        {/* Floating random button */}
+        <button
+          onClick={onRandom}
+          className="glass absolute -bottom-3 right-3 z-20 flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-white transition-transform hover:scale-105"
+          aria-label="Random anime"
+        >
+          <Shuffle className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+          Surprise me
+        </button>
+      </div>
+
+      {/* Continue Watching rail (only shows if user has progress) */}
+      <ContinueWatchingRail
+        onSelectAnime={onSelectAnime}
+        onResume={onResume}
       />
 
       {/* Genre rail */}
@@ -464,31 +522,8 @@ function BrowseTab({
 // ───────────────────────────────────────────────────────────────
 
 // ───────────────────────────────────────────────────────────────
-//  My List tab
+//  My List tab — implemented in @/components/app/MyListView
 // ───────────────────────────────────────────────────────────────
-
-function MyListView() {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div
-        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full"
-        style={{ background: 'rgba(181, 168, 255, 0.1)' }}
-      >
-        <Bookmark className="h-7 w-7" style={{ color: 'var(--primary)' }} />
-      </div>
-      <h2 className="mb-1 text-lg font-bold text-[var(--foreground)]">Your list is empty</h2>
-      <p className="mb-4 max-w-xs text-sm text-[var(--muted-foreground)]">
-        Bookmark anime to find them here. Your list syncs across devices once you log in.
-      </p>
-      <button
-        className="rounded-full bg-[var(--primary)] px-5 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-transform active:scale-95"
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      >
-        Browse anime
-      </button>
-    </div>
-  );
-}
 
 // ───────────────────────────────────────────────────────────────
 //  Helpers

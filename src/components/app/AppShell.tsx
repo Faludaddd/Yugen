@@ -91,17 +91,25 @@ export function AppShell({
             transition={{ type: 'spring', damping: 24, stiffness: 280 }}
           >
             <div className="mx-auto flex h-12 max-w-[109rem] items-center gap-2 px-3">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 {/* Yugen logo mark */}
                 <img
                   src="/logo.svg"
                   alt="Yugen"
-                  className="h-7 w-7 flex-shrink-0"
-                  style={{ filter: 'drop-shadow(0 0 6px rgba(181, 168, 255, 0.4))' }}
+                  className="h-8 w-8 flex-shrink-0"
+                  style={{ filter: 'drop-shadow(0 0 8px rgba(181, 168, 255, 0.5))' }}
                 />
                 <div className="min-w-0">
-                  <div className="truncate text-[1rem] font-bold leading-tight text-[var(--foreground)]">
-                    {title}
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-[1.05rem] font-bold leading-tight tracking-tight text-[var(--foreground)]">
+                      {title}
+                    </span>
+                    <span
+                      className="flex-shrink-0 text-[0.65rem] font-bold uppercase tracking-[0.15em]"
+                      style={{ color: 'var(--primary)' }}
+                    >
+                      幽玄
+                    </span>
                   </div>
                   {subtitle && (
                     <div className="truncate text-[0.65rem] leading-tight text-[var(--muted-foreground)]">

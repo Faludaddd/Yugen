@@ -28,6 +28,11 @@ import {
   Heart,
   Github,
   ChevronRight,
+  PictureInPicture2,
+  FastForward,
+  Hand,
+  Type,
+  Repeat,
 } from 'lucide-react';
 
 export function SettingsView() {
@@ -115,6 +120,33 @@ export function SettingsView() {
           value={s.hwAccel}
           onChange={s.setHwAccel}
         />
+
+        {/* PiP */}
+        <ToggleRow
+          icon={<PictureInPicture2 className="h-4 w-4" />}
+          label="Picture-in-Picture"
+          desc="Show PiP button to watch while browsing"
+          value={s.pipMode}
+          onChange={s.setPipMode}
+        />
+
+        {/* Hold for 2x */}
+        <ToggleRow
+          icon={<FastForward className="h-4 w-4" />}
+          label="Hold for 2× speed"
+          desc="Press and hold the player to temporarily play at 2×"
+          value={s.holdFor2x}
+          onChange={s.setHoldFor2x}
+        />
+
+        {/* Swipe gestures */}
+        <ToggleRow
+          icon={<Hand className="h-4 w-4" />}
+          label="Swipe gestures"
+          desc="Swipe horizontally to seek, vertically (right side) for volume"
+          value={s.swipeGestures}
+          onChange={s.setSwipeGestures}
+        />
       </Section>
 
       {/* ── Display ── */}
@@ -146,6 +178,33 @@ export function SettingsView() {
           value={s.hideSpoilersInSynopsis}
           onChange={s.setHideSpoilersInSynopsis}
         />
+
+        <ToggleRow
+          icon={<Type className="h-4 w-4" />}
+          label="Marquee long titles"
+          desc="Scroll long anime titles in the player"
+          value={s.marqueeTitles}
+          onChange={s.setMarqueeTitles}
+        />
+      </Section>
+
+      {/* ── Continue Watching ── */}
+      <Section title="Continue Watching" icon={<Repeat className="h-4 w-4" />}>
+        <Row
+          label="Clear watch progress"
+          desc={s.watchProgress.length > 0 ? `${s.watchProgress.length} episodes tracked` : 'No progress yet'}
+        >
+          {s.watchProgress.length > 0 ? (
+            <button
+              onClick={s.clearAllProgress}
+              className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:text-[var(--destructive)]"
+            >
+              Clear
+            </button>
+          ) : (
+            <span className="text-xs text-[var(--muted-foreground)]">—</span>
+          )}
+        </Row>
       </Section>
 
       {/* ── Data ── */}
