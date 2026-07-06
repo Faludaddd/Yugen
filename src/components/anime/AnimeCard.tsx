@@ -1,83 +1,121 @@
 'use client';
 
 /**
- * AnimeCard — poster card used in horizontal rails and grids.
+ * AnimeCard — Miruro-style poster card.
+ *
+ *  - 2:3 portrait ratio (138.346% padding-top, exactly like AniList posters)
+ *  - Hover: image darkens + zoom, center play icon fades in
+ *  - Title row: status indicator dot (color by status) + truncated title
+ *  - Detail pills: format · year · episode count
+ *  - Per-anime accent color applied via inline `--anime-accent` for hover tint
  */
 
-import { Star, Play } from 'lucide-react';
+import { Play, Calendar, Tv } from 'lucide-react';
 import type { Anime } from '@/lib/streaming/types';
 
 interface AnimeCardProps {
   anime: Anime;
   onClick: () => void;
-  variant?: 'portrait' | 'landscape';
-  showProgress?: number; // 0-100
 }
 
-export function AnimeCard({
-  anime,
-  onClick,
-  variant = 'portrait',
-  showProgress,
-}: AnimeCardProps) {
-  const isPortrait = variant === 'portrait';
-  const img = isPortrait ? anime.posterUrl : anime.bannerUrl || anime.posterUrl;
-  const title = anime.titleEnglish || anime.titleRomaji || anime.titleNative;
+export function AnimeCard({ anime, onClick }: AnimeCardProps) {
+  const title = anime.titleEnglish || anime.titleRomaji || anime.titleNative || 'Unknown';
+  const accent = anime.color || '#b5a8ff';
+  const status = anime.status ?? '';
+  const indicatorClass =
+    status === 'RELEASING' ? 'dot-ongoing' :
+    status === 'FINISHED' ? 'dot-completed' :
+    status === 'CANCELLED' ? 'dot-cancelled' :
+    status === 'NOT_YET_RELEASED' ? 'dot-not-aired' : '';
 
   return (
     <button
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-xl bg-card border border-border/50 hover:border-primary/50 transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary ${
-        isPortrait ? 'w-[140px] sm:w-[160px]' : 'w-[240px] sm:w-[280px]'
-      }`}
+      className="group block w-full text-left anim-slide-up"
+      style={{ ['--anime-accent' as string]: accent }}
     >
-      <div className={`${isPortrait ? 'aspect-[2/3]' : 'aspect-video'} relative bg-muted`}>
-        {img ? (
+      {/* Image area — 2:3 portrait */}
+      <div
+        className="relative overflow-hidden bg-[#181818] transition-transform duration-200 group-hover:-translate-y-1"
+        style={{
+          paddingTop: '138.346%',
+          borderRadius: 'var(--radius)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {anime.posterUrl && (
            
           <img
-            src={img}
+            src={anime.posterUrl}
             alt={title}
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-500 group-hover:scale-105 group-hover:brightness-50"
           />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-            No image
-          </div>
         )}
 
-        {/* Hover play overlay */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <div className="rounded-full bg-primary/90 p-2.5">
-            <Play className="h-5 w-5 text-primary-foreground" fill="currentColor" />
-          </div>
+        {/* Hover play button */}
+        <div
+          className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 scale-90 items-center justify-center rounded-full opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100"
+          style={{
+            color: accent,
+            border: `2px solid ${accent}`,
+            boxShadow: `0 4px 14px ${accent}66`,
+            background: 'rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <Play className="h-5 w-5" fill="currentColor" />
         </div>
 
         {/* Score badge */}
         {anime.averageScore && (
-          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 rounded-md bg-black/70 backdrop-blur px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
-            <Star className="h-2.5 w-2.5 fill-amber-400" />
-            {Math.round(anime.averageScore)}
-          </div>
-        )}
-
-        {/* Progress bar */}
-        {typeof showProgress === 'number' && (
-          <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20">
-            <div
-              className="h-full bg-primary"
-              style={{ width: `${showProgress}%` }}
-            />
+          <div
+            className="absolute right-1 top-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+            style={{
+              background: 'rgba(0,0,0,0.7)',
+              color: '#ffb648',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            ★ {Math.round(anime.averageScore)}
           </div>
         )}
       </div>
 
-      {/* Title */}
-      <div className="p-2">
-        <div className="truncate text-xs font-medium text-foreground">{title}</div>
-        <div className="text-[10px] text-muted-foreground mt-0.5">
-          {anime.format ?? 'TV'} · {anime.seasonYear ?? ''}
-        </div>
+      {/* Title row */}
+      <div
+        className="flex items-center gap-1.5 px-1 pt-1.5 pb-0.5"
+        title={`Title: ${title}`}
+      >
+        {indicatorClass && (
+          <span
+            className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${indicatorClass}`}
+          />
+        )}
+        <span
+          className="truncate text-[0.83rem] font-medium text-[var(--foreground)] transition-colors group-hover:text-[var(--anime-accent)]"
+        >
+          {title}
+        </span>
+      </div>
+
+      {/* Detail pills */}
+      <div className="flex gap-1 px-1 pb-1 text-[0.7rem] font-bold text-[var(--muted-foreground)]">
+        {anime.format && (
+          <span className="rounded bg-[var(--secondary)] px-1 py-0.5">{anime.format}</span>
+        )}
+        {anime.seasonYear && (
+          <span className="flex items-center gap-0.5 rounded bg-[var(--secondary)] px-1 py-0.5">
+            <Calendar className="h-2.5 w-2.5" />
+            {anime.seasonYear}
+          </span>
+        )}
+        {anime.episodes && (
+          <span className="flex items-center gap-0.5 rounded bg-[var(--secondary)] px-1 py-0.5">
+            <Tv className="h-2.5 w-2.5" />
+            {anime.episodes}
+          </span>
+        )}
       </div>
     </button>
   );

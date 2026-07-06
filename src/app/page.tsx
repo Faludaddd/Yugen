@@ -1,63 +1,104 @@
 'use client';
 
 /**
- * AniStream — Main page
+ * AniStream — Miruro-style home page.
  *
- * Mobile-first anime streaming app inspired by Th3-Anime.
+ * Single-page app navigated via tabs (HOME / TRENDING / SCHEDULE / HISTORY).
  *
- * Sections (single-page app, navigated via state):
- *   - Top bar with logo + search + settings
- *   - Featured banner (rotating hero)
- *   - Trending Now rail
- *   - Recently Added rail
- *   - Continue Watching rail
- *   - Bottom mobile nav (Home, Browse, Schedule, My List, Settings)
+ * Home tab:
+ *   - Hero carousel (Trending, top 12)
+ *   - Genre rail (masked edges, per-genre hover colors)
+ *   - Popular This Season rail
+ *   - Two-column layout:
+ *     - Left: poster grid with tabs (POPULAR / TOP RATED / NEWEST)
+ *     - Right: sidebar with TOP AIRING / JUST FINISHED / TOP MOVIES lists
  *
- * When user taps an anime → opens AnimeDetailSheet
- * When user taps an episode → opens WatchView (fullscreen)
- * When user taps settings cog → opens SettingsDrawer (mirror management)
+ * Search overlay opens from navbar.
+ * Anime detail sheet opens on card tap.
+ * Watch view opens on episode tap.
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, Settings, Home as HomeIcon, Calendar, Bookmark, Compass, Sparkles, X, Server } from 'lucide-react';
+import { Search, X, Flame, TrendingUp, Calendar, History as HistoryIcon, Home as HomeIcon, Star, Trophy, Clock3, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimeCard } from '@/components/anime/AnimeCard';
 import { AnimeDetailSheet } from '@/components/anime/AnimeDetailSheet';
 import { WatchView } from '@/components/player/WatchView';
-import { SettingsDrawer } from '@/components/player/SettingsDrawer';
+import { HeroCarousel } from '@/components/anime/HeroCarousel';
+import { GenreRail } from '@/components/anime/GenreRail';
+import { SideListCard } from '@/components/anime/SideListCard';
+import { Navbar } from '@/components/anime/Navbar';
+import { Drawer } from '@/components/anime/Drawer';
 import { toast } from 'sonner';
 import type { Anime, AnimeEpisode } from '@/lib/streaming/types';
 
+type Tab = 'home' | 'trending' | 'schedule' | 'history';
+
+interface HomeData {
+  trending: Anime[];
+  popularSeason: Anime[];
+  topAiring: Anime[];
+  justFinished: Anime[];
+  topMovies: Anime[];
+}
+
 export default function Home() {
-  const [anime, setAnime] = useState<Anime[]>([]);
+  const [data, setData] = useState<HomeData | null>(null);
+  const [gridAnime, setGridAnime] = useState<Anime[]>([]);
+  const [gridTab, setGridTab] = useState<'popular' | 'top-rated' | 'newest'>('popular');
+  const [gridLoading, setGridLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Anime[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [selectedAnime, setSelectedAnime] = useState<Anime | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [watchingEpisode, setWatchingEpisode] = useState<{ anime: Anime; episode: AnimeEpisode } | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'browse' | 'schedule' | 'list'>('home');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [browseGenre, setBrowseGenre] = useState<string | null>(null);
+  const [browseAnime, setBrowseAnime] = useState<Anime[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
 
-  // Load anime catalog
-  const loadAnime = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/anime', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to load');
-      const data = await res.json();
-      setAnime(data.anime);
-    } catch (e) {
-      toast.error('Failed to load anime catalog');
-    } finally {
-      setLoading(false);
-    }
+  // Load home data
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/anime', { cache: 'no-store' });
+        if (!res.ok) throw new Error();
+        const d: HomeData = await res.json();
+        if (cancelled) return;
+        setData(d);
+      } catch {
+        if (!cancelled) toast.error('Failed to load anime catalog');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
+  // Load grid tab data
   useEffect(() => {
-    loadAnime();
-  }, [loadAnime]);
+    let cancelled = false;
+    setGridLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/anime?section=${gridTab === 'top-rated' ? 'top-rated' : gridTab === 'newest' ? 'newest' : 'popular'}&perPage=30`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (cancelled) return;
+        setGridAnime(d.anime);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setGridLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [gridTab]);
 
   // Live search
   useEffect(() => {
@@ -65,31 +106,59 @@ export default function Home() {
       setSearchResults([]);
       return;
     }
+    setSearchLoading(true);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/anime?q=${encodeURIComponent(searchQuery)}`, { cache: 'no-store' });
         if (res.ok) {
-          const data = await res.json();
-          setSearchResults(data.anime);
+          const d = await res.json();
+          setSearchResults(d.anime);
         }
       } catch {
         // ignore
+      } finally {
+        setSearchLoading(false);
       }
-    }, 250);
+    }, 300);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Load full anime with episodes when selected
+  // Load browse (genre-filtered) data when genre changes
+  useEffect(() => {
+    if (!browseGenre) {
+      setBrowseAnime([]);
+      return;
+    }
+    let cancelled = false;
+    setBrowseLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/anime?browse=true&genre=${encodeURIComponent(browseGenre)}&sort=POPULARITY_DESC`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (cancelled) return;
+        setBrowseAnime(d.anime);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setBrowseLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [browseGenre]);
+
+  // Open anime detail
   const openAnime = useCallback(async (a: Anime) => {
+    setSelectedAnime(a);
+    setDetailOpen(true);
+    setSearchOpen(false);
     try {
       const res = await fetch(`/api/anime/${a.id}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setSelectedAnime(data.anime);
-      setDetailOpen(true);
-      setSearchOpen(false);
+      if (!res.ok) return;
+      const d = await res.json();
+      setSelectedAnime(d.anime);
     } catch {
-      toast.error('Failed to load anime details');
+      // keep partial data
     }
   }, []);
 
@@ -99,203 +168,298 @@ export default function Home() {
     setWatchingEpisode({ anime: selectedAnime, episode });
   }, [selectedAnime]);
 
-  // Featured = highest scored anime
-  const featured = anime.filter((a) => a.bannerUrl).slice(0, 3);
+  // Watch the first episode directly from hero "Watch Now" button
+  const handleWatchDirect = useCallback(async (a: Anime) => {
+    try {
+      const res = await fetch(`/api/anime/${a.id}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const d = await res.json();
+      const anime: Anime = d.anime;
+      const firstEp = anime.episodeEntries?.[0];
+      if (firstEp) {
+        setWatchingEpisode({ anime, episode: firstEp });
+      } else {
+        toast.error('No episodes available');
+      }
+    } catch {
+      toast.error('Failed to load anime details');
+    }
+  }, []);
+
+  // All genres from data (for genre rail)
+  const allGenres = Array.from(new Set(
+    (data?.trending ?? [])
+      .concat(data?.popularSeason ?? [])
+      .concat(gridAnime)
+      .flatMap((a) => a.genres)
+  )).sort();
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-[22rem] w-full animate-pulse rounded-2xl bg-[var(--secondary)] sm:h-[26rem] md:h-[30rem]" />
+        <div className="h-10 animate-pulse rounded bg-[var(--secondary)]" />
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="aspect-[2/3] animate-pulse rounded bg-[var(--secondary)]" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* ── Top bar ───────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <span className="font-bold text-base tracking-tight">AniStream</span>
-          </div>
+    <div className="min-h-screen">
+      <Navbar
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onOpenSearch={() => setSearchOpen(true)}
+      />
 
-          <div className="ml-auto flex items-center gap-1">
-            <button
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search"
-              className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Search className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Mirror sources"
-              className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Server className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Settings"
-              className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        activeRoute={activeTab}
+        onNavigate={setActiveTab}
+      />
 
-      {/* ── Main content ──────────────────────────────────────── */}
-      <main className="mx-auto max-w-6xl px-4 pb-20">
-        {activeTab === 'home' && (
-          <>
-            {/* Featured hero */}
-            {!loading && featured.length > 0 && (
-              <FeaturedHero anime={featured[0]} onPlay={() => openAnime(featured[0])} />
-            )}
+      {/* Tab navigation (below navbar, mobile-friendly) */}
+      <div className="mb-4 flex items-center gap-1 overflow-x-auto scrollbar-none">
+        <TabButton
+          active={activeTab === 'home'}
+          onClick={() => setActiveTab('home')}
+          icon={<HomeIcon className="h-4 w-4" />}
+          label="Home"
+        />
+        <TabButton
+          active={activeTab === 'trending'}
+          onClick={() => setActiveTab('trending')}
+          icon={<Flame className="h-4 w-4" />}
+          label="Trending"
+        />
+        <TabButton
+          active={activeTab === 'schedule'}
+          onClick={() => setActiveTab('schedule')}
+          icon={<Calendar className="h-4 w-4" />}
+          label="Schedule"
+        />
+        <TabButton
+          active={activeTab === 'history'}
+          onClick={() => setActiveTab('history')}
+          icon={<HistoryIcon className="h-4 w-4" />}
+          label="History"
+        />
+      </div>
 
-            {/* Loading skeleton */}
-            {loading && (
-              <div className="mt-6 space-y-4">
-                <div className="h-48 rounded-2xl bg-muted animate-pulse" />
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="aspect-[2/3] rounded-lg bg-muted animate-pulse" />
+      {/* ───── HOME TAB ───── */}
+      {activeTab === 'home' && data && (
+        <>
+          {/* Hero carousel */}
+          <HeroCarousel
+            items={data.trending}
+            onSelect={openAnime}
+            onWatch={handleWatchDirect}
+          />
+
+          {/* Genre rail */}
+          <GenreRail
+            genres={allGenres}
+            activeGenre={browseGenre}
+            onGenreChange={setBrowseGenre}
+          />
+
+          {/* If a genre is selected, show browse grid */}
+          {browseGenre ? (
+            <Section title={`${browseGenre} Anime`} icon={<Film className="h-4 w-4" />}>
+              {browseLoading ? (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div key={i} className="aspect-[2/3] animate-pulse rounded bg-[var(--secondary)]" />
                   ))}
                 </div>
+              ) : browseAnime.length === 0 ? (
+                <div className="py-12 text-center text-sm text-[var(--muted-foreground)]">
+                  No anime found in this genre.
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                  {browseAnime.map((a) => (
+                    <AnimeCard key={a.id} anime={a} onClick={() => openAnime(a)} />
+                  ))}
+                </div>
+              )}
+            </Section>
+          ) : (
+            <>
+              {/* Popular this season rail */}
+              {data.popularSeason.length > 0 && (
+                <Section title="Popular This Season" icon={<TrendingUp className="h-4 w-4" />}>
+                  <Rail>
+                    {data.popularSeason.map((a) => (
+                      <div key={a.id} className="w-[120px] flex-shrink-0 sm:w-[150px] md:w-[160px]">
+                        <AnimeCard anime={a} onClick={() => openAnime(a)} />
+                      </div>
+                    ))}
+                  </Rail>
+                </Section>
+              )}
+
+              {/* Two-column layout: grid + sidebar */}
+              <div className="mt-6 flex flex-col gap-6 lg:flex-row">
+                {/* Left: tabs + grid */}
+                <div className="flex-1">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">
+                      Browse
+                    </h3>
+                    <div className="tab-container">
+                      <button
+                        onClick={() => setGridTab('popular')}
+                        className={`tab-btn ${gridTab === 'popular' ? 'active' : ''}`}
+                      >
+                        POPULAR
+                      </button>
+                      <button
+                        onClick={() => setGridTab('top-rated')}
+                        className={`tab-btn ${gridTab === 'top-rated' ? 'active' : ''}`}
+                      >
+                        TOP RATED
+                      </button>
+                      <button
+                        onClick={() => setGridTab('newest')}
+                        className={`tab-btn ${gridTab === 'newest' ? 'active' : ''}`}
+                      >
+                        NEWEST
+                      </button>
+                    </div>
+                  </div>
+
+                  {gridLoading ? (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <div key={i} className="aspect-[2/3] animate-pulse rounded bg-[var(--secondary)]" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                      {gridAnime.map((a) => (
+                        <AnimeCard key={a.id} anime={a} onClick={() => openAnime(a)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: sidebar */}
+                <aside className="flex w-full flex-col gap-4 lg:w-96 lg:flex-shrink-0">
+                  <SidebarList
+                    title="Top Airing"
+                    icon={<Flame className="h-4 w-4 text-amber-400" />}
+                    anime={data.topAiring}
+                    onSelect={openAnime}
+                  />
+                  <SidebarList
+                    title="Just Finished"
+                    icon={<Clock3 className="h-4 w-4 text-cyan-400" />}
+                    anime={data.justFinished}
+                    onSelect={openAnime}
+                  />
+                  <SidebarList
+                    title="Top Movies"
+                    icon={<Trophy className="h-4 w-4 text-amber-400" />}
+                    anime={data.topMovies}
+                    onSelect={openAnime}
+                  />
+                </aside>
               </div>
-            )}
+            </>
+          )}
+        </>
+      )}
 
-            {/* Trending Now rail */}
-            {!loading && anime.length > 0 && (
-              <AnimeRail
-                title="Trending Now"
-                anime={anime}
-                onSelect={openAnime}
-              />
-            )}
+      {/* ───── TRENDING TAB ───── */}
+      {activeTab === 'trending' && data && (
+        <Section title="Trending Now" icon={<Flame className="h-4 w-4 text-amber-400" />}>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+            {data.trending.concat(data.popularSeason).map((a, i) => (
+              <AnimeCard key={`${a.id}-${i}`} anime={a} onClick={() => openAnime(a)} />
+            ))}
+          </div>
+        </Section>
+      )}
 
-            {/* Recently Added (reverse order) */}
-            {!loading && anime.length > 0 && (
-              <AnimeRail
-                title="Recently Added"
-                anime={[...anime].reverse()}
-                onSelect={openAnime}
-              />
-            )}
+      {/* ───── SCHEDULE TAB ───── */}
+      {activeTab === 'schedule' && data && (
+        <ScheduleView anime={data.topAiring.concat(data.trending)} onSelect={openAnime} />
+      )}
 
-            {/* Empty state */}
-            {!loading && anime.length === 0 && (
-              <div className="text-center py-16">
-                <Sparkles className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                <h2 className="text-base font-semibold text-foreground mb-1">
-                  No anime in catalog yet
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Try adding some via the AniList import (coming soon).
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === 'browse' && (
-          <BrowseView anime={anime} loading={loading} onSelect={openAnime} />
-        )}
-
-        {activeTab === 'schedule' && (
-          <ScheduleView anime={anime} loading={loading} onSelect={openAnime} />
-        )}
-
-        {activeTab === 'list' && (
-          <MyListView anime={anime} onSelect={openAnime} />
-        )}
-      </main>
-
-      {/* ── Bottom mobile nav ─────────────────────────────────── */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-card/95 backdrop-blur-lg border-t border-border">
-        <div className="mx-auto max-w-6xl px-2 h-14 grid grid-cols-4">
-          <NavButton
-            icon={<HomeIcon className="h-5 w-5" />}
-            label="Home"
-            active={activeTab === 'home'}
-            onClick={() => setActiveTab('home')}
-          />
-          <NavButton
-            icon={<Compass className="h-5 w-5" />}
-            label="Browse"
-            active={activeTab === 'browse'}
-            onClick={() => setActiveTab('browse')}
-          />
-          <NavButton
-            icon={<Calendar className="h-5 w-5" />}
-            label="Schedule"
-            active={activeTab === 'schedule'}
-            onClick={() => setActiveTab('schedule')}
-          />
-          <NavButton
-            icon={<Bookmark className="h-5 w-5" />}
-            label="My List"
-            active={activeTab === 'list'}
-            onClick={() => setActiveTab('list')}
-          />
+      {/* ───── HISTORY TAB ───── */}
+      {activeTab === 'history' && (
+        <div className="py-16 text-center">
+          <HistoryIcon className="mx-auto mb-3 h-10 w-10 text-[var(--muted-foreground)] opacity-40" />
+          <h2 className="mb-1 text-base font-semibold">No watch history yet</h2>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Episodes you watch will appear here.
+          </p>
         </div>
-      </nav>
+      )}
 
-      {/* ── Search overlay ────────────────────────────────────── */}
+      {/* ───── Search overlay ───── */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-background/95 backdrop-blur-lg"
+            className="fixed inset-0 z-[700] bg-[rgba(8,8,8,0.97)] backdrop-blur-lg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <div className="mx-auto max-w-2xl px-4 pt-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Search className="h-5 w-5 text-muted-foreground" />
+              <div className="mb-4 flex items-center gap-2">
+                <Search className="h-5 w-5 text-[var(--muted-foreground)]" />
                 <input
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search anime by title…"
-                  className="flex-1 bg-transparent border-0 outline-none text-base text-foreground placeholder:text-muted-foreground"
+                  placeholder="Search anime…"
+                  className="flex-1 border-0 bg-transparent text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
                 />
+                {searchLoading && (
+                  <div
+                    className="h-4 w-4 animate-spin rounded-full border-2"
+                    style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }}
+                  />
+                )}
                 <button
-                  onClick={() => {
-                    setSearchOpen(false);
-                    setSearchQuery('');
-                  }}
+                  onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
                   aria-label="Close search"
-                  className="rounded-full p-1.5 text-muted-foreground hover:bg-muted"
+                  className="rounded-full p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)]"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              {/* Recent searches placeholder */}
-              {!searchQuery.trim() && (
-                <div className="text-sm text-muted-foreground mt-8">
-                  <div className="text-xs uppercase tracking-wider mb-3">Trending Searches</div>
+              {!searchQuery.trim() ? (
+                <div className="mt-8 text-sm text-[var(--muted-foreground)]">
+                  <div className="mb-3 text-xs uppercase tracking-wider">Trending searches</div>
                   <div className="flex flex-wrap gap-2">
-                    {['Mushoku', 'Chainsaw', 'Demon Slayer'].map((q) => (
+                    {['One Piece', 'Jujutsu', 'Demon Slayer', 'Frieren', 'Chainsaw'].map((q) => (
                       <button
                         key={q}
                         onClick={() => setSearchQuery(q)}
-                        className="rounded-full bg-muted px-3 py-1.5 text-sm hover:bg-muted/70"
+                        className="rounded-full bg-[var(--secondary)] px-3 py-1.5 text-sm hover:text-[var(--primary)]"
                       >
                         {q}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* Search results */}
-              {searchQuery.trim() && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4">
+              ) : (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
                   {searchResults.map((a) => (
                     <AnimeCard key={a.id} anime={a} onClick={() => openAnime(a)} />
                   ))}
-                  {searchResults.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-sm text-muted-foreground">
-                      No results for "{searchQuery}"
+                  {searchResults.length === 0 && !searchLoading && (
+                    <div className="col-span-full py-12 text-center text-sm text-[var(--muted-foreground)]">
+                      No results for &quot;{searchQuery}&quot;
                     </div>
                   )}
                 </div>
@@ -305,7 +469,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* ── Anime detail sheet ────────────────────────────────── */}
+      {/* ───── Anime detail sheet ───── */}
       <AnimeDetailSheet
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
@@ -313,14 +477,7 @@ export default function Home() {
         onPlayEpisode={handlePlayEpisode}
       />
 
-      {/* ── Settings drawer ───────────────────────────────────── */}
-      <SettingsDrawer
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onProvidersChanged={() => {/* providers will be re-fetched next time WatchView mounts */}}
-      />
-
-      {/* ── Fullscreen watch view ─────────────────────────────── */}
+      {/* ───── Fullscreen watch view ───── */}
       <AnimatePresence>
         {watchingEpisode && (
           <WatchView
@@ -338,197 +495,123 @@ export default function Home() {
 //  Sub-components
 // ───────────────────────────────────────────────────────────────
 
-function NavButton({
-  icon,
-  label,
+function TabButton({
   active,
   onClick,
+  icon,
+  label,
 }: {
-  icon: React.ReactNode;
-  label: string;
   active: boolean;
   onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
-        active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+      className={`flex items-center gap-1.5 rounded-[var(--radius)] px-3 py-2 text-xs font-medium transition-colors ${
+        active
+          ? 'bg-[rgba(128,128,207,0.18)] text-[var(--primary)]'
+          : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
       }`}
     >
       {icon}
-      <span className="text-[10px] font-medium">{label}</span>
+      <span>{label}</span>
     </button>
   );
 }
 
-function FeaturedHero({ anime, onPlay }: { anime: Anime; onPlay: () => void }) {
-  const title = anime.titleEnglish || anime.titleRomaji || anime.titleNative;
+function Section({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mt-4 relative h-52 sm:h-64 rounded-2xl overflow-hidden border border-border">
-      {anime.bannerUrl && (
-         
-        <img src={anime.bannerUrl} alt={title} className="h-full w-full object-cover" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-      <div className="absolute bottom-0 inset-x-0 p-4 sm:p-6">
-        <div className="text-[10px] uppercase tracking-wider text-primary font-bold mb-1">
-          Featured
-        </div>
-        <h2 className="text-lg sm:text-2xl font-bold text-white leading-tight mb-1 line-clamp-2">
+    <section className="mt-6">
+      <div className="mb-3 flex items-center gap-2">
+        {icon}
+        <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">
           {title}
-        </h2>
-        <div className="flex items-center gap-2 text-[11px] text-white/70 mb-3">
-          <span>{anime.format ?? 'TV'}</span>
-          <span>·</span>
-          <span>{anime.seasonYear}</span>
-          {anime.averageScore && (
-            <>
-              <span>·</span>
-              <span className="text-amber-400 font-semibold">
-                ★ {Math.round(anime.averageScore)}%
-              </span>
-            </>
-          )}
-        </div>
-        <button
-          onClick={onPlay}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          ▶ Play Now
-        </button>
+        </h3>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Rail({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="scrollbar-none rail-mask flex gap-3 overflow-x-auto pb-2">
+      {children}
+    </div>
+  );
+}
+
+function SidebarList({
+  title,
+  icon,
+  anime,
+  onSelect,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  anime: Anime[];
+  onSelect: (a: Anime) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2 px-1">
+        {icon}
+        <h3 className="text-[1.1rem] font-bold uppercase tracking-wider text-[var(--foreground)]">
+          {title}
+        </h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        {anime.map((a, i) => (
+          <SideListCard
+            key={a.id}
+            anime={a}
+            rank={i + 1}
+            onClick={() => onSelect(a)}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-function AnimeRail({
-  title,
-  anime,
-  onSelect,
-}: {
-  title: string;
-  anime: Anime[];
-  onSelect: (a: Anime) => void;
-}) {
-  if (anime.length === 0) return null;
-  return (
-    <section className="mt-6">
-      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
-        {title}
-      </h3>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin -mx-4 px-4">
-        {anime.map((a) => (
-          <div key={a.id} className="flex-shrink-0">
-            <AnimeCard anime={a} onClick={() => onSelect(a)} />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function BrowseView({
-  anime,
-  loading,
-  onSelect,
-}: {
-  anime: Anime[];
-  loading: boolean;
-  onSelect: (a: Anime) => void;
-}) {
-  const [genreFilter, setGenreFilter] = useState<string | null>(null);
-  const genres = Array.from(new Set(anime.flatMap((a) => a.genres))).sort();
-
-  const filtered = genreFilter ? anime.filter((a) => a.genres.includes(genreFilter)) : anime;
-
-  return (
-    <section className="mt-6">
-      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
-        Browse All
-      </h3>
-
-      {/* Genre filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin -mx-4 px-4 mb-4">
-        <button
-          onClick={() => setGenreFilter(null)}
-          className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            !genreFilter ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          All
-        </button>
-        {genres.map((g) => (
-          <button
-            key={g}
-            onClick={() => setGenreFilter(g)}
-            className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              genreFilter === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {g}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="aspect-[2/3] rounded-lg bg-muted animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-          {filtered.map((a) => (
-            <AnimeCard key={a.id} anime={a} onClick={() => onSelect(a)} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function ScheduleView({
   anime,
-  loading,
   onSelect,
 }: {
   anime: Anime[];
-  loading: boolean;
   onSelect: (a: Anime) => void;
 }) {
-  if (loading) {
-    return (
-      <div className="mt-6 space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
-        ))}
-      </div>
-    );
-  }
-
-  // Group by day of week (using airing schedule — for demo, just spread across days)
+  // Group by simulated airing day (deterministic per anime)
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const byDay: Record<string, Anime[]> = {};
   days.forEach((d) => (byDay[d] = []));
   anime.forEach((a, i) => {
-    const day = days[i % 7];
-    byDay[day].push(a);
+    byDay[days[i % 7]].push(a);
   });
 
   return (
     <section className="mt-6">
-      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">
         Weekly Schedule
       </h3>
       <div className="space-y-4">
         {days.map((d) => (
           <div key={d}>
-            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
               {d}
             </div>
             {byDay[d].length === 0 ? (
-              <div className="text-xs text-muted-foreground/50 italic pl-3">
+              <div className="pl-3 text-xs italic text-[var(--muted-foreground)] opacity-50">
                 No episodes airing
               </div>
             ) : (
@@ -537,25 +620,28 @@ function ScheduleView({
                   <button
                     key={a.id}
                     onClick={() => onSelect(a)}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-muted/40 hover:bg-muted border border-transparent hover:border-border transition-colors text-left"
+                    className="flex w-full items-center gap-3 rounded-[var(--radius)] border border-transparent bg-[var(--secondary)] p-2 text-left transition-colors hover:border-[var(--border)]"
                   >
                     {a.posterUrl && (
                        
                       <img
                         src={a.posterUrl}
                         alt={a.titleEnglish || a.titleRomaji}
-                        className="w-10 h-14 object-cover rounded flex-shrink-0"
+                        className="h-14 w-10 flex-shrink-0 rounded object-cover"
                       />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-[var(--foreground)]">
                         {a.titleEnglish || a.titleRomaji}
                       </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Episode {Math.floor(Math.random() * 12) + 1} · 24 min
+                      <div className="text-[0.7rem] text-[var(--muted-foreground)]">
+                        EP {Math.floor(Math.random() * 12) + 1} · 24 min
                       </div>
                     </div>
-                    <div className="text-[11px] text-primary font-bold">
+                    <div
+                      className="text-[0.7rem] font-bold"
+                      style={{ color: a.color || 'var(--primary)' }}
+                    >
                       {Math.floor(Math.random() * 12) + 10}:00
                     </div>
                   </button>
@@ -565,31 +651,6 @@ function ScheduleView({
           </div>
         ))}
       </div>
-    </section>
-  );
-}
-
-function MyListView({ anime, onSelect }: { anime: Anime[]; onSelect: (a: Anime) => void }) {
-  // Demo: show all anime as "Watching" — in the real app this is from the DB
-  return (
-    <section className="mt-6">
-      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
-        My List
-      </h3>
-      {anime.length === 0 ? (
-        <div className="text-center py-12">
-          <Bookmark className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <div className="text-sm text-muted-foreground">
-            Your list is empty. Add anime from the browse page.
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-          {anime.map((a) => (
-            <AnimeCard key={a.id} anime={a} onClick={() => onSelect(a)} showProgress={Math.random() * 100} />
-          ))}
-        </div>
-      )}
     </section>
   );
 }

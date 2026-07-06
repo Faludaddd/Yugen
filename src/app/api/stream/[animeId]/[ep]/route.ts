@@ -1,36 +1,34 @@
 /**
  * GET /api/stream/[animeId]/[ep]
- *   Resolves a playable stream URL for the requested episode.
+ *   Resolve a playable stream URL via Consumet (with multi-instance fallback).
  *
  * Query params:
- *   ?provider=<codename>  — force a specific provider (default: auto-pick best)
- *   ?audio=sub|dub        — audio mode (default: sub)
- *   ?quality=auto|1080p|720p|480p  — quality tier (default: auto)
+ *   ?audio=sub|dub        (default: sub)
+ *   ?provider=<codename>  (cosmetic only — affects the display chip)
  *
- * Response:
- *   200: {
+ * Response (success):
+ *   {
  *     ok: true,
  *     stream: {
- *       url, type: 'hls'|'mp4'|'embed', quality, audio,
+ *       url, type, quality, audio,
  *       provider: { codename, displayName, ... },
- *       sourceAttribution
+ *       sourceAttribution,
+ *       availableQualities: [{ url, quality }]
  *     },
- *     fallbacksTried: [...codenames]
+ *     fallbacksTried: [instance labels]
  *   }
  *
- *   503: { ok: false, error, fallbacksTried }
+ * Response (failure — all Consumet instances down):
+ *   { ok: false, error: '...', fallbacksTried: [...] }
  *
- * Behavior:
- *   - If provider specified: try that one. If it fails, fall back to next
- *     enabled provider that supports the requested audio mode.
- *   - If provider not specified: pick the highest-priority enabled provider
- *     supporting the audio mode.
- *   - For each candidate: substitute placeholders in resolverEndpoint,
- *     mark the provider 'degraded' if unreachable, try the next one.
+ * The player UI handles this gracefully and shows a clear "Source unavailable"
+ * message instead of playing placeholder content.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { resolveStream } from '@/lib/streaming/resolver';
+import { getPresetProviders } from '@/lib/anilist';
+import type { AudioMode } from '@/lib/streaming/types';
 
 export async function GET(
   req: NextRequest,
@@ -38,186 +36,78 @@ export async function GET(
 ) {
   const { animeId, ep } = await params;
   const sp = req.nextUrl.searchParams;
-  const requestedProvider = sp.get('provider'); // codename
-  const audio = sp.get('audio') === 'dub' ? 'dub' : 'sub';
-  const quality = sp.get('quality') || 'auto';
+  const audioMode = (sp.get('audio') === 'dub' ? 'dub' : 'sub') as AudioMode;
+  const providerCodename = sp.get('provider') ?? 'BEEP';
 
-  // Validate anime + episode exist
-  const anime = await db.anime.findUnique({
-    where: { id: animeId },
-    include: {
-      episodeEntries: { where: { number: parseInt(ep, 10) }, take: 1 },
-    },
-  });
-  if (!anime) {
+  // Parse AniList ID from "al-21" or "21"
+  const anilistId = parseInt(animeId.startsWith('al-') ? animeId.slice(3) : animeId, 10);
+  if (!Number.isFinite(anilistId)) {
     return NextResponse.json(
-      { ok: false, error: 'Anime not found' },
-      { status: 404 }
-    );
-  }
-  if (anime.episodeEntries.length === 0) {
-    return NextResponse.json(
-      { ok: false, error: `Episode ${ep} not found` },
-      { status: 404 }
+      { ok: false, error: `Invalid anime id: ${animeId}` },
+      { status: 400 }
     );
   }
 
-  // Load all enabled providers supporting the requested audio mode
-  const all = await db.provider.findMany({
-    where: { enabled: true },
-    orderBy: [{ priority: 'asc' }, { codename: 'asc' }],
-  });
-
-  // Parse + filter by audio support
-  const candidates = all
-    .map((p) => ({
-      ...p,
-      badges: safeParse<string[]>(p.badges, []),
-      supports: safeParse<string[]>(p.supports, ['sub', 'dub']),
-      qualityOptions: safeParse<string[]>(p.qualityOptions, ['auto']),
-    }))
-    .filter((p) => p.supports.includes(audio));
-
-  // Order: requested provider first (if any), then by priority
-  if (requestedProvider) {
-    candidates.sort((a, b) => {
-      if (a.codename === requestedProvider) return -1;
-      if (b.codename === requestedProvider) return 1;
-      return a.priority - b.priority;
-    });
+  const episodeNum = parseInt(ep, 10);
+  if (!Number.isFinite(episodeNum) || episodeNum < 1) {
+    return NextResponse.json(
+      { ok: false, error: `Invalid episode number: ${ep}` },
+      { status: 400 }
+    );
   }
 
-  const fallbacksTried: string[] = [];
+  // Try Consumet
+  const result = await resolveStream(anilistId, episodeNum, audioMode, providerCodename);
 
-  for (const provider of candidates) {
-    fallbacksTried.push(provider.codename);
-
-    try {
-      const streamUrl = resolveStreamUrl(
-        provider.resolverEndpoint,
-        provider.resolverType,
-        {
-          animeId: anime.id,
-          anilistId: anime.anilistId,
-          malId: anime.malId,
-          ep,
-          audio,
-          quality,
-        }
-      );
-
-      if (!streamUrl) {
-        await markProvider(provider.id, 'degraded', 'No resolver URL');
-        continue;
-      }
-
-      // Pick the actual quality — if requested quality not in provider's
-      // options, fall back to 'auto'
-      const effectiveQuality =
-        quality === 'auto' || provider.qualityOptions.includes(quality)
-          ? quality
-          : 'auto';
-
-      // Mark provider OK
-      await markProvider(provider.id, 'ok', null);
-
-      return NextResponse.json({
-        ok: true,
-        stream: {
-          url: streamUrl,
-          type: provider.resolverType,
-          quality: effectiveQuality,
-          audio,
-          provider: {
-            id: provider.id,
-            codename: provider.codename,
-            displayName: provider.displayName,
-            description: provider.description,
-            badges: provider.badges,
-            sourceAttribution: provider.sourceAttribution,
-            qualityOptions: provider.qualityOptions,
-          },
-          episode: {
-            animeId: anime.id,
-            animeTitle:
-              anime.titleEnglish || anime.titleRomaji || anime.titleNative,
-            number: parseInt(ep, 10),
-            title: anime.episodeEntries[0].title,
-            duration: anime.episodeEntries[0].duration,
-          },
-        },
-        fallbacksTried,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown resolver error';
-      await markProvider(provider.id, 'degraded', msg);
-      continue;
-    }
-  }
-
-  return NextResponse.json(
-    {
-      ok: false,
-      error: `No providers could resolve a stream for episode ${ep} (${audio})`,
-      fallbacksTried,
-    },
-    { status: 503 }
-  );
-}
-
-// ──────────────────────────────────────────────────────────────
-//  Helpers
-// ──────────────────────────────────────────────────────────────
-
-function resolveStreamUrl(
-  endpoint: string,
-  _type: string,
-  ctx: {
-    animeId: string;
-    anilistId: number;
-    malId: number | null;
-    ep: string;
-    audio: string;
-    quality: string;
-  }
-): string {
-  if (!endpoint) return '';
-  return endpoint
-    .replace(/\{animeId\}/g, ctx.animeId)
-    .replace(/\{anilistId\}/g, String(ctx.anilistId))
-    .replace(/\{malId\}/g, String(ctx.malId ?? ''))
-    .replace(/\{ep\}/g, ctx.ep)
-    .replace(/\{audio\}/g, ctx.audio)
-    .replace(/\{quality\}/g, ctx.quality);
-}
-
-async function markProvider(
-  providerId: string,
-  health: 'ok' | 'degraded' | 'down',
-  error: string | null
-) {
-  try {
-    await db.provider.update({
-      where: { id: providerId },
-      data: {
-        health,
-        lastCheckedAt: new Date(),
-        lastError: error,
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error,
+        fallbacksTried: result.triedInstances,
       },
-    });
-    await db.providerHealthLog.create({
-      data: { providerId, status: health, error },
-    });
-  } catch {
-    // ignore logging errors
+      { status: 503 }
+    );
   }
-}
 
-function safeParse<T>(s: string | null | undefined, fallback: T): T {
-  if (!s) return fallback;
-  try {
-    return JSON.parse(s) as T;
-  } catch {
-    return fallback;
-  }
+  // Pick the best source — prefer HLS, then MP4, fallback to first
+  const hlsSource = result.sources.find((s) => s.type === 'hls');
+  const mp4Source = result.sources.find((s) => s.type === 'mp4');
+  const chosen = hlsSource ?? mp4Source ?? result.sources[0];
+
+  // Find the matching preset provider for display metadata
+  const preset = getPresetProviders().find((p) => p.codename === providerCodename) ??
+    getPresetProviders()[0];
+
+  return NextResponse.json({
+    ok: true,
+    stream: {
+      url: chosen.url,
+      type: chosen.type,
+      quality: chosen.quality === 'default' || chosen.quality === 'backup' ? 'auto' : chosen.quality,
+      audio: audioMode,
+      provider: {
+        id: preset.id,
+        codename: preset.codename,
+        displayName: preset.displayName,
+        description: preset.description,
+        badges: preset.badges,
+        sourceAttribution: result.sourceAttribution,
+        qualityOptions: preset.qualityOptions,
+      },
+      episode: {
+        animeId,
+        animeTitle: '',
+        number: episodeNum,
+        title: `Episode ${episodeNum}`,
+        duration: null,
+      },
+      availableQualities: result.sources.map((s) => ({
+        url: s.url,
+        quality: s.quality,
+        type: s.type,
+      })),
+    },
+    fallbacksTried: [result.sourceAttribution],
+  });
 }

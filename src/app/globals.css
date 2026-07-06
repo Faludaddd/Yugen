@@ -43,107 +43,194 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* AniStream — Dark Premium theme (always dark, matches Th3-Anime aesthetic) */
+/* ─────────────────────────────────────────────────────────────
+   AniStream — Miruro-inspired dark theme (always dark)
+   ───────────────────────────────────────────────────────────── */
 :root {
-  --radius: 0.75rem;
-  /* True black background, charcoal cards, emerald-green accent */
-  --background: oklch(0.06 0 0);             /* near-black */
-  --foreground: oklch(0.98 0 0);             /* near-white */
-  --card: oklch(0.11 0 0);                   /* charcoal */
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.13 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.72 0.19 152);           /* emerald-500-ish */
-  --primary-foreground: oklch(0.05 0 0);
-  --secondary: oklch(0.16 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.13 0 0);
-  --muted-foreground: oklch(0.62 0 0);
-  --accent: oklch(0.72 0.19 152);            /* matches primary — green for selection */
-  --accent-foreground: oklch(0.05 0 0);
-  --destructive: oklch(0.65 0.22 24);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.72 0.19 152);
-  --chart-1: oklch(0.72 0.19 152);
-  --chart-2: oklch(0.7 0.18 305);
-  --chart-3: oklch(0.75 0.18 70);
-  --chart-4: oklch(0.7 0.17 220);
-  --chart-5: oklch(0.65 0.22 16);
-  --sidebar: oklch(0.08 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.72 0.19 152);
-  --sidebar-primary-foreground: oklch(0.05 0 0);
-  --sidebar-accent: oklch(0.16 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.72 0.19 152);
+  /* Miruro design tokens */
+  --radius: 0.5rem;
+
+  /* Surfaces */
+  --background: #080808;                       /* page bg */
+  --foreground: #e8e8e8;                       /* primary text */
+  --card: #181818;                             /* solid card bg */
+  --card-foreground: #e8e8e8;
+  --popover: #0e0e0e;                          /* translucent card bg */
+  --popover-foreground: #e8e8e8;
+
+  /* Miruro accent = lavender */
+  --primary: #b5a8ff;
+  --primary-foreground: #080808;
+  --secondary: #141414;                        /* secondary surface */
+  --secondary-foreground: #e8e8e8;
+  --muted: #141414;
+  --muted-foreground: #696969;                 /* muted text */
+  --accent: #b5a8ff;
+  --accent-foreground: #080808;
+
+  --destructive: #ff0000;
+  --border: rgba(245, 245, 245, 0.1);
+  --input: rgba(245, 245, 245, 0.1);
+  --ring: #b5a8ff;
+
+  /* Status colors (used as indicator dots) */
+  --status-ongoing: #aaff00;
+  --status-completed: #00aaff;
+  --status-cancelled: #ff0000;
+  --status-not-aired: #ffa500;
+  --status-favourite: #e85d8a;
+
+  --chart-1: #b5a8ff;
+  --chart-2: #e49335;
+  --chart-3: #28bbe4;
+  --chart-4: #fe5093;
+  --chart-5: #aaff00;
+
+  --sidebar: #0e0e0e;
+  --sidebar-foreground: #e8e8e8;
+  --sidebar-primary: #b5a8ff;
+  --sidebar-primary-foreground: #080808;
+  --sidebar-accent: #141414;
+  --sidebar-accent-foreground: #e8e8e8;
+  --sidebar-border: rgba(245, 245, 245, 0.1);
+  --sidebar-ring: #b5a8ff;
 }
 
 .dark {
-  /* Mirror of :root since we're always dark */
-  --background: oklch(0.06 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.11 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.13 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.72 0.19 152);
-  --primary-foreground: oklch(0.05 0 0);
-  --secondary: oklch(0.16 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.13 0 0);
-  --muted-foreground: oklch(0.62 0 0);
-  --accent: oklch(0.72 0.19 152);
-  --accent-foreground: oklch(0.05 0 0);
-  --destructive: oklch(0.65 0.22 24);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.72 0.19 152);
-  --chart-1: oklch(0.72 0.19 152);
-  --chart-2: oklch(0.7 0.18 305);
-  --chart-3: oklch(0.75 0.18 70);
-  --chart-4: oklch(0.7 0.17 220);
-  --chart-5: oklch(0.65 0.22 16);
-  --sidebar: oklch(0.08 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.72 0.19 152);
-  --sidebar-primary-foreground: oklch(0.05 0 0);
-  --sidebar-accent: oklch(0.16 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.72 0.19 152);
+  /* Mirin :root since we're always dark */
+  --radius: 0.5rem;
+  --background: #080808;
+  --foreground: #e8e8e8;
+  --card: #181818;
+  --card-foreground: #e8e8e8;
+  --popover: #0e0e0e;
+  --popover-foreground: #e8e8e8;
+  --primary: #b5a8ff;
+  --primary-foreground: #080808;
+  --secondary: #141414;
+  --secondary-foreground: #e8e8e8;
+  --muted: #141414;
+  --muted-foreground: #696969;
+  --accent: #b5a8ff;
+  --accent-foreground: #080808;
+  --destructive: #ff0000;
+  --border: rgba(245, 245, 245, 0.1);
+  --input: rgba(245, 245, 245, 0.1);
+  --ring: #b5a8ff;
+  --status-ongoing: #aaff00;
+  --status-completed: #00aaff;
+  --status-cancelled: #ff0000;
+  --status-not-aired: #ffa500;
+  --status-favourite: #e85d8a;
+  --chart-1: #b5a8ff;
+  --chart-2: #e49335;
+  --chart-3: #28bbe4;
+  --chart-4: #fe5093;
+  --chart-5: #aaff00;
+  --sidebar: #0e0e0e;
+  --sidebar-foreground: #e8e8e8;
+  --sidebar-primary: #b5a8ff;
+  --sidebar-primary-foreground: #080808;
+  --sidebar-accent: #141414;
+  --sidebar-accent-foreground: #e8e8e8;
+  --sidebar-border: rgba(245, 245, 245, 0.1);
+  --sidebar-ring: #b5a8ff;
+}
+
+/* Touch devices get bigger radius */
+@media (pointer: coarse) {
+  :root { --radius: 1rem; }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html, body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  }
   body {
-    @apply bg-background text-foreground;
+    max-width: 109rem;
+    margin: 0 auto;
+    padding: 4.5rem 0.6rem 1em;
+  }
+  @media (max-width: 500px) {
+    body {
+      padding: 4rem 0.5rem 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+  ::selection {
+    color: var(--primary);
+    background-color: rgba(89, 89, 145, 0.5);
   }
 }
 
-/* Thin scrollbar styling for horizontal rails and overflow containers */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ─── Miruro-style utilities ─────────────────────────────────── */
+
+/* Glass chip — backdrop blur + translucent bg + subtle border */
+.glass {
+  background: rgba(14, 14, 14, 0.3);
+  backdrop-filter: blur(10px) contrast(125%);
+  -webkit-backdrop-filter: blur(10px) contrast(125%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
 }
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Hero overlay — the signature 3-way gradient */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(45deg, var(--background) 5%, transparent 60%),
+    linear-gradient(0deg,  var(--background) 1%, transparent 60%),
+    linear-gradient(-45deg, var(--background) 5%, transparent 60%);
 }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
-  border-radius: 9999px;
-  opacity: 0.4;
+
+/* Per-anime gradient text — set --anime-accent inline on the element */
+.gradient-text {
+  color: var(--anime-accent, white);
+  background-image: linear-gradient(45deg, var(--anime-accent, white), white);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+
+/* Hidden scrollbar everywhere */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--muted-foreground) transparent;
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
+
+/* Masked-edge rail (genre rail, watchlist rail) */
+.rail-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+/* Entrance animations (Miruro style) */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes slideRight { 0% { opacity: 0; transform: translateX(-10px); } 100% { opacity: 1; transform: translateX(0); } }
+@keyframes popIn { 0% { opacity: 0; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+
+.anim-fade { animation: fadeIn 0.4s ease-in-out both; }
+.anim-slide-up { animation: slideUp 0.4s ease-in-out both; }
+.anim-slide-right { animation: slideRight 0.4s ease-in-out both; }
+.anim-pop { animation: popIn 0.4s ease-in-out both; }
+
+/* Indicator dot — status color */
+.dot-ongoing { background-color: var(--status-ongoing); }
+.dot-completed { background-color: var(--status-completed); }
+.dot-cancelled { background-color: var(--status-cancelled); }
+.dot-not-aired { background-color: var(--status-not-aired); }
 
 /* Range input — minimal style override for the seek bar */
 input[type="range"] {
@@ -157,7 +244,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: var(--color-primary);
+  background: var(--primary);
   cursor: pointer;
   border: 0;
   opacity: 0;
@@ -170,11 +257,61 @@ input[type="range"]::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: var(--color-primary);
+  background: var(--primary);
   cursor: pointer;
   border: 0;
   opacity: 0;
 }
 input[type="range"]:hover::-moz-range-thumb {
   opacity: 1;
+}
+
+/* Genre button hover color (per-genre) */
+.genre-btn {
+  padding: 0.5rem 1.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--foreground);
+  background: var(--secondary);
+  border-radius: var(--radius);
+  transition: color 0.3s ease-in-out;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+}
+.genre-btn:hover {
+  color: var(--genre-hover-color, var(--primary));
+}
+.genre-btn.active {
+  color: var(--primary);
+  background: rgba(128, 128, 207, 0.25);
+}
+
+/* Tabs (segmented control) */
+.tab-container {
+  display: flex;
+  width: max-content;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.tab-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--foreground);
+  background: var(--secondary);
+  border: none;
+  outline: 1px solid var(--border);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.tab-btn:hover, .tab-btn:active { color: var(--primary); }
+.tab-btn.active {
+  color: var(--primary);
+  background: rgba(128, 128, 207, 0.25);
+}
+
+@media (min-width: 1000px) {
+  .tab-btn { padding: 0.75rem 1.25rem; }
 }

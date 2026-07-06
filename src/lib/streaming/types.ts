@@ -87,5 +87,7 @@ export interface Anime {
   genres: string[];
   ageRating: string | null;
   studios: string[];
+  // Per-anime accent color from AniList cover (hex like #e49335)
+  color?: string | null;
   episodeEntries?: AnimeEpisode[];
 }
