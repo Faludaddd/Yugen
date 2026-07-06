@@ -122,8 +122,12 @@ export function VideoPlayer({
 
     const setupHls = async () => {
       if (streamType === 'hls') {
-        // Safari has native HLS
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Always prefer hls.js when supported (Chromium reports it can play
+        // mpegurl natively but actually can't — using video.src directly fails
+        // with MEDIA_ERR_SRC_NOT_SUPPORTED). Only fall back to native HLS on
+        // Safari where it actually works.
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        if (isSafari && video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = streamUrl;
           return;
         }
@@ -136,9 +140,9 @@ export function VideoPlayer({
               enableWorker: true,
               lowLatencyMode: false,
               backBufferLength: 60,
-              fragLoadingMaxRetry: 4,
-              manifestLoadingMaxRetry: 3,
-              levelLoadingMaxRetry: 3,
+              fragLoadingMaxRetry: 6,
+              manifestLoadingMaxRetry: 4,
+              levelLoadingMaxRetry: 4,
             });
             hlsRef.current = hls;
             hls.loadSource(streamUrl);
@@ -149,6 +153,9 @@ export function VideoPlayer({
                 onPlaybackError(`HLS fatal: ${data.details}`);
               }
             });
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Last resort: try native
+            video.src = streamUrl;
           } else {
             setError('HLS not supported in this browser');
             onPlaybackError('HLS not supported');
@@ -364,7 +371,6 @@ export function VideoPlayer({
         className={`h-full w-full ${videoClass} bg-black`}
         playsInline
         autoPlay
-        crossOrigin="anonymous"
         onClick={(e) => {
           e.stopPropagation();
           togglePlay();

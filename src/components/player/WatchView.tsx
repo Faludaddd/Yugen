@@ -246,9 +246,10 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
                     Streaming source unavailable
                   </div>
                   <div className="mb-3 text-sm text-[var(--muted-foreground)]">
-                    All public anime streaming APIs are currently down due to
-                    legal takedowns. None of the configured providers could
-                    return a working stream for this episode.
+                    We couldn&apos;t find a working stream for this specific anime.
+                    This usually means it&apos;s not in the Anikoto catalog, or
+                    the episode hasn&apos;t been uploaded yet. Try a different
+                    anime, or paste your own stream URL below.
                   </div>
                   <div className="mb-4 text-xs text-[var(--muted-foreground)] opacity-70">
                     {fatalError}
@@ -360,25 +361,23 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
                         </div>
                         <div className="space-y-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
                           <p>
-                            <strong className="text-[var(--foreground)]">Why don&apos;t streams work?</strong>{' '}
-                            Anime streaming sites (Gogoanime, Zoro, 9anime) and
-                            their public APIs (Consumet, aniwatch-api) get
-                            taken down constantly due to copyright lawsuits.
-                            As of 2026, almost all public instances are dead.
+                            <strong className="text-[var(--foreground)]">How does streaming work?</strong>{' '}
+                            We scrape Anikoto (anikototv.to) to find stream URLs
+                            for each anime episode. Not every anime is in their
+                            catalog — newer or less popular titles may be missing.
                           </p>
                           <p>
                             <strong className="text-[var(--foreground)]">What can I do?</strong>
                           </p>
                           <ul className="ml-4 list-disc space-y-1">
-                            <li>Self-host the Consumet API on your own server</li>
-                            <li>Find a working private mirror and paste its URL above</li>
-                            <li>Use a real licensed service like Crunchyroll</li>
+                            <li>Try a more popular anime (Demon Slayer, One Piece, JJK all work)</li>
+                            <li>Try a different episode number</li>
+                            <li>Paste your own stream URL using &quot;Play my own URL&quot; below</li>
                           </ul>
                           <p>
-                            <strong className="text-[var(--foreground)]">Is the rest of the app broken?</strong>{' '}
-                            No — the catalog, search, schedule, and metadata all
-                            use AniList (a legitimate anime database). Only
-                            the actual video streams are affected.
+                            <strong className="text-[var(--foreground)]">Catalog, search, schedule all work?</strong>{' '}
+                            Yes — those use AniList (a legitimate anime database).
+                            Only the video stream for this specific anime failed.
                           </p>
                         </div>
                       </motion.div>

@@ -1,33 +1,20 @@
 /**
  * GET /api/stream/[animeId]/[ep]
- *   Resolve a playable stream URL via Consumet (with multi-instance fallback).
+ *   Resolve a playable stream URL.
+ *
+ * Strategy:
+ *   1. Fetch anime metadata from AniList (cached)
+ *   2. Try the Anikoto scraper (real streams from anikototv.to)
+ *   3. If that fails, return a 503 with a clear error
  *
  * Query params:
  *   ?audio=sub|dub        (default: sub)
  *   ?provider=<codename>  (cosmetic only — affects the display chip)
- *
- * Response (success):
- *   {
- *     ok: true,
- *     stream: {
- *       url, type, quality, audio,
- *       provider: { codename, displayName, ... },
- *       sourceAttribution,
- *       availableQualities: [{ url, quality }]
- *     },
- *     fallbacksTried: [instance labels]
- *   }
- *
- * Response (failure — all Consumet instances down):
- *   { ok: false, error: '...', fallbacksTried: [...] }
- *
- * The player UI handles this gracefully and shows a clear "Source unavailable"
- * message instead of playing placeholder content.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveStream } from '@/lib/streaming/resolver';
-import { getPresetProviders } from '@/lib/anilist';
+import { resolveAnikotoStream } from '@/lib/streaming/anikoto';
+import { getAnimeById, getPresetProviders } from '@/lib/anilist';
 import type { AudioMode } from '@/lib/streaming/types';
 
 export async function GET(
@@ -39,7 +26,7 @@ export async function GET(
   const audioMode = (sp.get('audio') === 'dub' ? 'dub' : 'sub') as AudioMode;
   const providerCodename = sp.get('provider') ?? 'BEEP';
 
-  // Parse AniList ID from "al-21" or "21"
+  // Parse AniList ID
   const anilistId = parseInt(animeId.startsWith('al-') ? animeId.slice(3) : animeId, 10);
   if (!Number.isFinite(anilistId)) {
     return NextResponse.json(
@@ -56,24 +43,28 @@ export async function GET(
     );
   }
 
-  // Try Consumet
-  const result = await resolveStream(anilistId, episodeNum, audioMode, providerCodename);
+  // Fetch anime metadata (cached)
+  const anime = await getAnimeById(`al-${anilistId}`);
+  if (!anime) {
+    return NextResponse.json(
+      { ok: false, error: `Anime ${anilistId} not found` },
+      { status: 404 }
+    );
+  }
 
-  if (!result.ok) {
+  // Try the Anikoto scraper
+  const stream = await resolveAnikotoStream(anime, episodeNum, audioMode);
+
+  if (!stream) {
     return NextResponse.json(
       {
         ok: false,
-        error: result.error,
-        fallbacksTried: result.triedInstances,
+        error: `Could not find a working stream for "${anime.titleEnglish || anime.titleRomaji}" episode ${episodeNum} (${audioMode}). The anime may not be available on Anikoto.`,
+        fallbacksTried: ['anikoto'],
       },
       { status: 503 }
     );
   }
-
-  // Pick the best source — prefer HLS, then MP4, fallback to first
-  const hlsSource = result.sources.find((s) => s.type === 'hls');
-  const mp4Source = result.sources.find((s) => s.type === 'mp4');
-  const chosen = hlsSource ?? mp4Source ?? result.sources[0];
 
   // Find the matching preset provider for display metadata
   const preset = getPresetProviders().find((p) => p.codename === providerCodename) ??
@@ -82,9 +73,12 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     stream: {
-      url: chosen.url,
-      type: chosen.type,
-      quality: chosen.quality === 'default' || chosen.quality === 'backup' ? 'auto' : chosen.quality,
+      // Route HLS streams through our proxy to bypass Cloudflare Referer checks
+      url: stream.type === 'hls'
+        ? `/api/proxy?url=${encodeURIComponent(stream.url)}`
+        : stream.url,
+      type: stream.type,
+      quality: stream.quality,
       audio: audioMode,
       provider: {
         id: preset.id,
@@ -92,22 +86,21 @@ export async function GET(
         displayName: preset.displayName,
         description: preset.description,
         badges: preset.badges,
-        sourceAttribution: result.sourceAttribution,
+        sourceAttribution: stream.sourceAttribution,
         qualityOptions: preset.qualityOptions,
       },
       episode: {
         animeId,
-        animeTitle: '',
+        animeTitle: anime.titleEnglish || anime.titleRomaji || '',
         number: episodeNum,
         title: `Episode ${episodeNum}`,
         duration: null,
       },
-      availableQualities: result.sources.map((s) => ({
-        url: s.url,
-        quality: s.quality,
-        type: s.type,
+      subtitles: stream.subtitles?.map((s) => ({
+        ...s,
+        file: `/api/proxy?url=${encodeURIComponent(s.file)}`,
       })),
     },
-    fallbacksTried: [result.sourceAttribution],
+    fallbacksTried: [stream.sourceAttribution],
   });
 }
