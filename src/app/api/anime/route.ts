@@ -18,6 +18,7 @@ import {
   getTopAiring,
   getJustFinished,
   getTopMovies,
+  getSchedule,
   searchAnime,
   browseAnime,
 } from '@/lib/anilist';
@@ -61,6 +62,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ anime: await getJustFinished(10) });
       case 'top-movies':
         return NextResponse.json({ anime: await getTopMovies(10) });
+      case 'schedule':
+        return NextResponse.json({ days: await getSchedule(7, 50) });
       default:
         // Default home response — return all sections
         const [trending, popularSeason, topAiring, justFinished, topMovies] = await Promise.all([

@@ -274,6 +274,91 @@ export async function getTopAiring(perPage = 10): Promise<Anime[]> {
   return setCached(cacheKey, data.Page.media.map(mapMediaToAnime));
 }
 
+/**
+ * Real airing schedule for the next 7 days.
+ *
+ * AniList's `nextAiringEpisode.airingAt` is a Unix timestamp (UTC seconds)
+ * of when the next episode airs. We query all currently-releasing anime
+ * sorted by next airing time, then group by local day-of-week.
+ *
+ * Returns an object: { day: string, anime: { anime, episode, airingAt, timeUntilAiring }[] }[]
+ */
+export interface ScheduleEntry {
+  anime: Anime;
+  episode: number;
+  airingAt: Date;       // local time
+  timeUntilAiring: number; // seconds
+  hasAired: boolean;
+}
+export interface ScheduleDay {
+  date: Date;
+  dayName: string;       // "Mon", "Tue", etc.
+  entries: ScheduleEntry[];
+}
+
+export async function getSchedule(daysAhead = 7, perPage = 50): Promise<ScheduleDay[]> {
+  const cacheKey = `schedule:${daysAhead}:${perPage}`;
+  const cached = getCached<ScheduleDay[]>(cacheKey);
+  if (cached) return cached;
+
+  // Get currently-releasing anime with next airing episode data
+  const data = await gql<{ Page: { media: AniListMedia[] } }>(
+    `query ($perPage: Int) {
+      Page(perPage: $perPage, page: 1) {
+        media(sort: POPULARITY_DESC, type: ANIME, status: RELEASING, isAdult: false) {
+          ${FRAGMENT_MEDIA}
+        }
+      }
+    }`,
+    { perPage }
+  );
+
+  const now = Date.now();
+  const cutoff = now + daysAhead * 24 * 60 * 60 * 1000;
+
+  // Build entries from anime with nextAiringEpisode data
+  const entries: ScheduleEntry[] = [];
+  for (const m of data.Page.media) {
+    const nae = m.nextAiringEpisode;
+    if (!nae) continue;
+    const airingAtMs = nae.airingAt * 1000;
+    if (airingAtMs > cutoff) continue; // beyond our window
+    entries.push({
+      anime: mapMediaToAnime(m),
+      episode: nae.episode,
+      airingAt: new Date(airingAtMs),
+      timeUntilAiring: nae.timeUntilAiring,
+      hasAired: nae.timeUntilAiring <= 0,
+    });
+  }
+
+  // Sort by airing time
+  entries.sort((a, b) => a.airingAt.getTime() - b.airingAt.getTime());
+
+  // Group by day (local time, user's timezone)
+  const days: ScheduleDay[] = [];
+  const dayMap = new Map<string, ScheduleEntry[]>();
+
+  for (const entry of entries) {
+    const dayKey = entry.airingAt.toDateString(); // "Mon Jul 07 2026"
+    if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+    dayMap.get(dayKey)!.push(entry);
+  }
+
+  // Sort days chronologically
+  const sortedDayKeys = Array.from(dayMap.keys()).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+  );
+
+  for (const key of sortedDayKeys) {
+    const date = new Date(key);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    days.push({ date, dayName, entries: dayMap.get(key)! });
+  }
+
+  return setCached(cacheKey, days);
+}
+
 /** Just finished (sidebar) */
 export async function getJustFinished(perPage = 10): Promise<Anime[]> {
   const cacheKey = `just-finished:${perPage}`;

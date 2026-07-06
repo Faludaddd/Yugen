@@ -27,6 +27,7 @@ import { SideListCard } from '@/components/anime/SideListCard';
 import { AppShell, type AppTab } from '@/components/app/AppShell';
 import { SearchOverlay } from '@/components/app/SearchOverlay';
 import { SettingsView } from '@/components/app/SettingsView';
+import { ScheduleView as ScheduleTab } from '@/components/app/ScheduleView';
 import { useSettings } from '@/lib/settings';
 import { toast } from 'sonner';
 import type { Anime, AnimeEpisode } from '@/lib/streaming/types';
@@ -218,11 +219,8 @@ export default function Home() {
       )}
 
       {/* ───── SCHEDULE TAB ───── */}
-      {activeTab === 'schedule' && data && (
-        <ScheduleView
-          anime={data.topAiring.concat(data.trending).concat(data.popularSeason)}
-          onSelect={openAnime}
-        />
+      {activeTab === 'schedule' && (
+        <ScheduleTab onSelect={openAnime} />
       )}
 
       {/* ───── MY LIST TAB ───── */}
@@ -462,77 +460,8 @@ function BrowseTab({
 }
 
 // ───────────────────────────────────────────────────────────────
-//  Schedule tab
+//  Schedule tab — implemented in @/components/app/ScheduleView
 // ───────────────────────────────────────────────────────────────
-
-function ScheduleView({
-  anime,
-  onSelect,
-}: {
-  anime: Anime[];
-  onSelect: (a: Anime) => void;
-}) {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const byDay: Record<string, Anime[]> = {};
-  days.forEach((d) => (byDay[d] = []));
-  anime.forEach((a, i) => {
-    byDay[days[i % 7]].push(a);
-  });
-
-  return (
-    <section>
-      <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">
-        Weekly Schedule
-      </h3>
-      <div className="space-y-4">
-        {days.map((d) => (
-          <div key={d}>
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
-              {d}
-            </div>
-            {byDay[d].length === 0 ? (
-              <div className="pl-3 text-xs italic text-[var(--muted-foreground)] opacity-50">
-                No episodes airing
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {byDay[d].map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => onSelect(a)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-transparent bg-[var(--card)] p-2 text-left transition-colors hover:border-[var(--border)]"
-                  >
-                    {a.posterUrl && (
-                      <img
-                        src={a.posterUrl}
-                        alt={a.titleEnglish || a.titleRomaji}
-                        className="h-14 w-10 flex-shrink-0 rounded object-cover"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-[var(--foreground)]">
-                        {a.titleEnglish || a.titleRomaji}
-                      </div>
-                      <div className="text-[0.7rem] text-[var(--muted-foreground)]">
-                        EP {Math.floor(Math.random() * 12) + 1} · 24 min
-                      </div>
-                    </div>
-                    <div
-                      className="text-[0.7rem] font-bold"
-                      style={{ color: a.color || 'var(--primary)' }}
-                    >
-                      {Math.floor(Math.random() * 12) + 10}:00
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 // ───────────────────────────────────────────────────────────────
 //  My List tab

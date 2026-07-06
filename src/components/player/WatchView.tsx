@@ -11,8 +11,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { VideoPlayer } from './VideoPlayer';
 import { ProviderSheet } from './ProviderSheet';
-import { ChevronDown, Server, AlertTriangle, RotateCw } from 'lucide-react';
+import { ChevronDown, Server, AlertTriangle, RotateCw, Link2, Play, Info, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import type { Provider, Anime, AnimeEpisode, AudioMode, StreamResponse } from '@/lib/streaming/types';
 
 interface WatchViewProps {
@@ -31,6 +32,12 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
   const [fallbacksTried, setFallbacksTried] = useState<string[]>([]);
   const [fatalError, setFatalError] = useState<string | null>(null);
   const retryCountRef = useRef(0);
+
+  // Custom URL mode — when no source works, user can paste their own stream URL
+  const [customUrlMode, setCustomUrlMode] = useState(false);
+  const [customUrl, setCustomUrl] = useState('');
+  const [customUrlPlaying, setCustomUrlPlaying] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   // Load preset providers on mount
   useEffect(() => {
@@ -141,9 +148,65 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
 
   const handleRetry = useCallback(() => {
     setFatalError(null);
+    setCustomUrlMode(false);
+    setCustomUrlPlaying(false);
     retryCountRef.current = 0;
     void resolveStream(audioMode, selectedProvider?.codename ?? null);
   }, [audioMode, selectedProvider, resolveStream]);
+
+  // Play a custom URL provided by the user
+  const handlePlayCustomUrl = useCallback(() => {
+    const trimmed = customUrl.trim();
+    if (!trimmed) {
+      toast.error('Please paste a stream URL');
+      return;
+    }
+    // Basic validation
+    let urlHost = '';
+    try {
+      const u = new URL(trimmed);
+      if (!/^https?:$/.test(u.protocol)) {
+        toast.error('URL must start with http:// or https://');
+        return;
+      }
+      urlHost = u.host;
+    } catch {
+      toast.error('Please enter a valid URL');
+      return;
+    }
+    // Determine type from URL
+    const isHls = trimmed.endsWith('.m3u8') || trimmed.includes('.m3u8?');
+    const isMp4 = trimmed.endsWith('.mp4') || trimmed.includes('.mp4?');
+    const type: 'hls' | 'mp4' | 'embed' = isHls ? 'hls' : isMp4 ? 'mp4' : 'embed';
+
+    // Set up a synthetic stream object
+    setStream({
+      url: trimmed,
+      type,
+      quality: 'auto',
+      audio: audioMode,
+      provider: {
+        id: 'custom',
+        codename: 'CUSTOM',
+        displayName: 'Custom URL',
+        description: 'Your own stream URL',
+        badges: [],
+        sourceAttribution: urlHost,
+        qualityOptions: ['auto'],
+      },
+      episode: {
+        animeId: anime.id,
+        animeTitle: anime.titleEnglish || anime.titleRomaji || '',
+        number: episode.number,
+        title: episode.title,
+        duration: episode.duration,
+      },
+    });
+    setCustomUrlPlaying(true);
+    setFatalError(null);
+    setCustomUrlMode(false);
+    toast.success('Playing your custom URL');
+  }, [customUrl, audioMode, anime, episode]);
 
   return (
     <motion.div
@@ -182,8 +245,10 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
                   <div className="mb-2 text-lg font-bold text-[var(--foreground)]">
                     Streaming source unavailable
                   </div>
-                  <div className="mb-1 text-sm text-[var(--muted-foreground)]">
-                    We couldn&apos;t reach any of the configured anime streaming sources.
+                  <div className="mb-3 text-sm text-[var(--muted-foreground)]">
+                    All public anime streaming APIs are currently down due to
+                    legal takedowns. None of the configured providers could
+                    return a working stream for this episode.
                   </div>
                   <div className="mb-4 text-xs text-[var(--muted-foreground)] opacity-70">
                     {fatalError}
@@ -193,13 +258,22 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
                       Tried: {fallbacksTried.join(', ')}
                     </div>
                   )}
-                  <div className="flex items-center justify-center gap-2">
+
+                  {/* Action buttons */}
+                  <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
                     <button
                       onClick={handleRetry}
                       className="flex items-center gap-1.5 rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-transform hover:scale-105"
                     >
                       <RotateCw className="h-4 w-4" />
-                      Retry
+                      Retry sources
+                    </button>
+                    <button
+                      onClick={() => setCustomUrlMode(true)}
+                      className="glass flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
+                    >
+                      <Link2 className="h-4 w-4" />
+                      Play my own URL
                     </button>
                     <button
                       onClick={() => setSheetOpen(true)}
@@ -209,6 +283,107 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
                       Switch provider
                     </button>
                   </div>
+
+                  <button
+                    onClick={() => setShowInfo(true)}
+                    className="text-xs text-[var(--muted-foreground)] underline hover:text-[var(--foreground)]"
+                  >
+                    Why can&apos;t I stream?
+                  </button>
+
+                  {/* Custom URL input */}
+                  {customUrlMode && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-left"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="text-sm font-semibold text-[var(--foreground)]">
+                          Play custom stream URL
+                        </div>
+                        <button
+                          onClick={() => setCustomUrlMode(false)}
+                          className="rounded-full p-1 text-[var(--muted-foreground)] hover:bg-[var(--secondary)]"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="mb-3 text-xs text-[var(--muted-foreground)]">
+                        Paste a direct stream URL (.m3u8, .mp4, or embeddable URL)
+                        from your own source. It will play in the player below.
+                      </p>
+                      <input
+                        type="url"
+                        value={customUrl}
+                        onChange={(e) => setCustomUrl(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handlePlayCustomUrl(); }}
+                        placeholder="https://example.com/anime/ep1.m3u8"
+                        className="mb-3 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handlePlayCustomUrl}
+                        className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition-transform hover:scale-[1.02]"
+                      >
+                        <Play className="h-4 w-4" fill="currentColor" />
+                        Play URL
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {/* Info modal */}
+                  {showInfo && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur"
+                      onClick={() => setShowInfo(false)}
+                    >
+                      <motion.div
+                        className="max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 text-left"
+                        onClick={(e) => e.stopPropagation()}
+                        initial={{ scale: 0.95 }}
+                        animate={{ scale: 1 }}
+                      >
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="flex items-center gap-2 text-base font-bold">
+                            <Info className="h-4 w-4 text-[var(--primary)]" />
+                            About streaming
+                          </h3>
+                          <button
+                            onClick={() => setShowInfo(false)}
+                            className="rounded-full p-1 text-[var(--muted-foreground)] hover:bg-[var(--secondary)]"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="space-y-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                          <p>
+                            <strong className="text-[var(--foreground)]">Why don&apos;t streams work?</strong>{' '}
+                            Anime streaming sites (Gogoanime, Zoro, 9anime) and
+                            their public APIs (Consumet, aniwatch-api) get
+                            taken down constantly due to copyright lawsuits.
+                            As of 2026, almost all public instances are dead.
+                          </p>
+                          <p>
+                            <strong className="text-[var(--foreground)]">What can I do?</strong>
+                          </p>
+                          <ul className="ml-4 list-disc space-y-1">
+                            <li>Self-host the Consumet API on your own server</li>
+                            <li>Find a working private mirror and paste its URL above</li>
+                            <li>Use a real licensed service like Crunchyroll</li>
+                          </ul>
+                          <p>
+                            <strong className="text-[var(--foreground)]">Is the rest of the app broken?</strong>{' '}
+                            No — the catalog, search, schedule, and metadata all
+                            use AniList (a legitimate anime database). Only
+                            the actual video streams are affected.
+                          </p>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
                 </div>
               ) : (
                 <div>
