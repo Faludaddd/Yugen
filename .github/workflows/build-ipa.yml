@@ -1,0 +1,167 @@
+name: Build iOS IPA
+
+# Build the Yugen iOS app (IPA) in the cloud using GitHub's free macOS runners.
+# The IPA is uploaded as a build artifact you can download and sideload.
+
+on:
+  # Trigger manually from the Actions tab
+  workflow_dispatch:
+  # Trigger on pushes to main that change app code
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'prisma/**'
+      - 'package.json'
+      - 'capacitor.config.ts'
+      - 'next.config.ts'
+
+jobs:
+  build-ipa:
+    runs-on: macos-14  # M1 macOS runner (free for public repos)
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Setup Ruby for CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Build Next.js web app
+        run: bun run build
+        env:
+          # Required for Next.js build
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Add iOS platform
+        run: bun run cap:add:ios
+        continue-on-error: true  # Ignore if already added
+
+      - name: Sync Capacitor
+        run: bun run cap:sync
+
+      - name: Configure signing (self-signed for sideloading)
+        working-directory: ios/App
+        run: |
+          # Create a self-signed certificate for sideloading
+          # This produces an unsigned IPA that sideloading tools (AltStore, Sideloadly)
+          # will re-sign with your own Apple ID at install time.
+          mkdir -p build
+          # Set the bundle ID to something unique for sideloading
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.yugen.anime" App/Info.plist || true
+          # Disable automatic signing (we'll export unsigned)
+          /usr/libexec/PlistBuddy -c "Delete :ProvisioningStyle" App.xcodeproj/project.pbxproj 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :ProvisioningStyle string Manual" App.xcodeproj/project.pbxproj 2>/dev/null || true
+
+      - name: Build archive (unsigned)
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath build/App.xcarchive \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Export unsigned IPA
+        working-directory: ios/App
+        run: |
+          # Create export options plist for unsigned export
+          cat > ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>teamID</key>
+            <string></string>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+
+          mkdir -p build/ipa
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist ExportOptions.plist \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            || true  # Continue even if export fails — we'll try the manual path
+
+          # If the above failed, manually create the IPA from the archive
+          if [ ! -f build/ipa/Yugen.ipa ] && [ -d build/App.xcarchive/Products/Applications ]; then
+            echo "Standard export failed, creating IPA manually..."
+            cd build/App.xcarchive/Products/Applications
+            mkdir -p Payload
+            cp -r App.app Payload/
+            zip -r ../../ipa/Yugen.ipa Payload
+            echo "✓ Created IPA manually at build/ipa/Yugen.ipa"
+          fi
+
+      - name: Verify IPA exists
+        working-directory: ios/App
+        run: |
+          ls -la build/ipa/
+          if [ -f build/ipa/Yugen.ipa ]; then
+            echo "✓ IPA built successfully: $(du -h build/ipa/Yugen.ipa | cut -f1)"
+          else
+            echo "✗ IPA build failed"
+            exit 1
+          fi
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yugen-iOS-IPA
+          path: ios/App/build/ipa/Yugen.ipa
+          retention-days: 90  # Keep for 3 months
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          echo "## 🎉 Yugen IPA Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the IPA from the **Artifacts** section below." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Sideload instructions:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download and unzip the **Yugen-iOS-IPA** artifact" >> $GITHUB_STEP_SUMMARY
+          echo "2. Open your sideloading app (AltStore / Sideloadly / TrollStore)" >> $GITHUB_STEP_SUMMARY
+          echo "3. Select the \`Yugen.ipa\` file" >> $GITHUB_STEP_SUMMARY
+          echo "4. Sign in with your Apple ID (when prompted)" >> $GITHUB_STEP_SUMMARY
+          echo "5. Install on your iPhone" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ Free Apple ID signing expires after 7 days" >> $GITHUB_STEP_SUMMARY
+          echo "Re-sign via AltStore while on the same WiFi as your computer." >> $GITHUB_STEP_SUMMARY
