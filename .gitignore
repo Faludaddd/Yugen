@@ -62,3 +62,16 @@ server.log
 *.aab
 build/
 ExportOptions.plist
+
+# Sandbox-only files (not part of the app)
+/upload/
+/.zscripts/
+/worklog.md
+/tool-results/
+/download/
+/scripts/
+
+# Sandbox config / generated files
+Caddyfile
+db/*.db
+db/*.db-journal
