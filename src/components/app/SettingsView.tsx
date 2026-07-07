@@ -294,6 +294,21 @@ export function SettingsView() {
           </div>
           <ChevronRight className="h-4 w-4 text-[var(--muted-foreground)]" />
         </a>
+
+        <Row
+          label="Install as app"
+          desc="Add Yugen to your home screen for a native app experience"
+        >
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone)
+              ? '✓ Installed'
+              : 'PWA ready'}
+          </span>
+        </Row>
+
+        <Row label="iOS sideloading" desc="Build IPA with Capacitor (see IPA-BUILD.md)">
+          <span className="text-xs text-[var(--primary)]">Capacitor</span>
+        </Row>
       </Section>
 
       {/* Footer */}

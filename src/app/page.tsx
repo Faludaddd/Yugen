@@ -31,6 +31,7 @@ import { ScheduleView as ScheduleTab } from '@/components/app/ScheduleView';
 import { MyListView } from '@/components/app/MyListView';
 import { ContinueWatchingRail } from '@/components/app/ContinueWatchingRail';
 import { ErrorBoundary } from '@/components/app/ErrorBoundary';
+import { InstallPrompt } from '@/components/app/InstallPrompt';
 import { useSettings } from '@/lib/settings';
 import { toast } from 'sonner';
 import type { Anime, AnimeEpisode } from '@/lib/streaming/types';
@@ -292,6 +293,8 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
+      {/* Install prompt (PWA) */}
+      <InstallPrompt />
     </AppShell>
     </ErrorBoundary>
   );
