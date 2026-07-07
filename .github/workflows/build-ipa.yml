@@ -47,6 +47,14 @@ jobs:
       - name: Install CocoaPods
         run: gem install cocoapods
 
+      - name: Remove API routes (not compatible with static export)
+        run: |
+          # Static export can't have dynamic API routes.
+          # The app uses client-side data fetching (src/lib/client-data.ts)
+          # so API routes aren't needed in the IPA build.
+          rm -rf src/app/api
+          echo "✓ Removed src/app/api for static export"
+
       - name: Build Next.js web app (static export)
         run: bun run build:export
         env:
