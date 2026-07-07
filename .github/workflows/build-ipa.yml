@@ -47,10 +47,9 @@ jobs:
       - name: Install CocoaPods
         run: gem install cocoapods
 
-      - name: Build Next.js web app
-        run: bun run build
+      - name: Build Next.js web app (static export)
+        run: bun run build:export
         env:
-          # Required for Next.js build
           NEXT_TELEMETRY_DISABLED: '1'
 
       - name: Add iOS platform

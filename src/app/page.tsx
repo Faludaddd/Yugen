@@ -35,6 +35,15 @@ import { InstallPrompt } from '@/components/app/InstallPrompt';
 import { useSettings } from '@/lib/settings';
 import { toast } from 'sonner';
 import type { Anime, AnimeEpisode } from '@/lib/streaming/types';
+import {
+  getHomeData,
+  getPopular,
+  getTopRated,
+  getNewest,
+  searchAnimeClient,
+  getAnimeByIdClient,
+  getScheduleClient,
+} from '@/lib/client-data';
 
 interface HomeData {
   trending: Anime[];
@@ -67,11 +76,9 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/anime', { cache: 'no-store' });
-        if (!res.ok) throw new Error();
-        const d: HomeData = await res.json();
+        const d = await getHomeData();
         if (cancelled) return;
-        setData(d);
+        setData(d as HomeData);
       } catch {
         if (!cancelled) toast.error('Failed to load catalog');
       } finally {
@@ -87,12 +94,12 @@ export default function Home() {
     setGridLoading(true);
     (async () => {
       try {
-        const sectionMap = { 'popular': 'popular', 'top-rated': 'top-rated', 'newest': 'newest' };
-        const res = await fetch(`/api/anime?section=${sectionMap[gridTab]}&perPage=30`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const d = await res.json();
+        let anime: Anime[] = [];
+        if (gridTab === 'popular') anime = await getPopular(30);
+        else if (gridTab === 'top-rated') anime = await getTopRated(30);
+        else if (gridTab === 'newest') anime = await getNewest(30);
         if (cancelled) return;
-        setGridAnime(d.anime ?? []);
+        setGridAnime(anime);
       } catch {
         // ignore
       } finally {
@@ -112,11 +119,39 @@ export default function Home() {
     setBrowseLoading(true);
     (async () => {
       try {
-        const res = await fetch(`/api/anime?browse=true&genre=${encodeURIComponent(browseGenre)}&sort=POPULARITY_DESC`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const d = await res.json();
+        // For genre browsing, use AniList directly with genre filter
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            query: `query ($perPage: Int, $genre: String) { Page(perPage: $perPage, page: 1) { media(sort: POPULARITY_DESC, type: ANIME, genre: $genre, isAdult: false) { id idMal title { romaji english native userPreferred } description(asHtml: false) coverImage { extraLarge large medium color } bannerImage format episodes status season seasonYear averageScore genres studios(isMain: true) { nodes { name isAnimationStudio } } startDate { year month day } nextAiringEpisode { episode timeUntilAiring airingAt } } } }`,
+            variables: { perPage: 30, genre: browseGenre },
+          }),
+        });
+        const json = await res.json();
         if (cancelled) return;
-        setBrowseAnime(d.anime ?? []);
+        const media = json?.data?.Page?.media ?? [];
+        setBrowseAnime(media.map((m: Record<string, unknown>) => ({
+          id: `al-${m.id}`,
+          anilistId: m.id,
+          malId: m.idMal ?? null,
+          titleRomaji: m.title?.romaji ?? '',
+          titleEnglish: m.title?.english ?? null,
+          titleNative: m.title?.native ?? null,
+          synopsis: m.description?.replace(/<[^>]+>/g, '').trim() ?? null,
+          posterUrl: m.coverImage?.extraLarge || m.coverImage?.large || null,
+          bannerUrl: m.bannerImage || m.coverImage?.extraLarge || null,
+          format: m.format ?? null,
+          episodes: m.episodes ?? null,
+          status: m.status ?? null,
+          season: m.season ?? null,
+          seasonYear: m.seasonYear ?? null,
+          averageScore: m.averageScore ?? null,
+          genres: m.genres ?? [],
+          ageRating: null,
+          studios: (m.studios?.nodes ?? []).map((s: { name: string }) => s.name),
+          color: m.coverImage?.color ?? null,
+        })) as Anime[]);
       } catch {
         // ignore
       } finally {
@@ -133,10 +168,8 @@ export default function Home() {
     setSearchOpen(false);
     addRecentAnime(a.id);
     try {
-      const res = await fetch(`/api/anime/${a.id}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const d = await res.json();
-      setSelectedAnime(d.anime);
+      const full = await getAnimeByIdClient(a.id);
+      if (full) setSelectedAnime(full);
     } catch {
       // keep partial data
     }
@@ -150,14 +183,12 @@ export default function Home() {
 
   const handleWatchDirect = useCallback(async (a: Anime) => {
     try {
-      const res = await fetch(`/api/anime/${a.id}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const d = await res.json();
-      const anime: Anime = d.anime;
-      const firstEp = anime.episodeEntries?.[0];
+      const full = await getAnimeByIdClient(a.id);
+      if (!full) { toast.error('Failed to load anime details'); return; }
+      const firstEp = full.episodeEntries?.[0];
       if (firstEp) {
-        addRecentAnime(anime.id);
-        setWatchingEpisode({ anime, episode: firstEp });
+        addRecentAnime(full.id);
+        setWatchingEpisode({ anime: full, episode: firstEp });
       } else {
         toast.error('No episodes available');
       }
@@ -187,14 +218,11 @@ export default function Home() {
   // Resume watching — opens WatchView directly with the saved episode
   const handleResume = useCallback(async (anime: Anime, episodeId: string, episodeNum: number) => {
     try {
-      // Fetch full anime + episode list
-      const res = await fetch(`/api/anime/${anime.id}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const d = await res.json();
-      const fullAnime: Anime = d.anime;
-      const episode = fullAnime.episodeEntries?.find((e) => e.number === episodeNum);
+      const full = await getAnimeByIdClient(anime.id);
+      if (!full) { toast.error('Failed to resume'); return; }
+      const episode = full.episodeEntries?.find((e) => e.number === episodeNum);
       if (episode) {
-        setWatchingEpisode({ anime: fullAnime, episode });
+        setWatchingEpisode({ anime: full, episode });
       } else {
         toast.error('Episode not found');
       }

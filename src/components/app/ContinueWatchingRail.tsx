@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, X, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/settings';
+import { getAnimeByIdClient } from '@/lib/client-data';
 import type { Anime } from '@/lib/streaming/types';
 
 interface ContinueWatchingRailProps {
@@ -45,12 +46,11 @@ export function ContinueWatchingRail({ onSelectAnime, onResume }: ContinueWatchi
       const resolved: ResolvedEntry[] = [];
       for (const p of watchProgress.slice(0, 12)) {
         try {
-          const res = await fetch(`/api/anime/${p.animeId}`, { cache: 'no-store' });
-          if (!res.ok) continue;
-          const d = await res.json();
+          const anime = await getAnimeByIdClient(p.animeId);
           if (cancelled) return;
+          if (!anime) continue;
           resolved.push({
-            anime: d.anime as Anime,
+            anime,
             episodeId: p.episodeId,
             episodeNum: p.episodeNum,
             position: p.position,

@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import type { Provider, Anime, AnimeEpisode, AudioMode, StreamResponse } from '@/lib/streaming/types';
 import { useSettings } from '@/lib/settings';
+import { getPresetProviders } from '@/lib/anilist';
 
 interface WatchViewProps {
   anime: Anime;
@@ -50,13 +51,23 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/providers', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
+        // Try API first (works in dev/server mode)
+        let providerList: Provider[];
+        try {
+          const res = await fetch('/api/providers', { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            providerList = data.providers;
+          } else {
+            throw new Error('API not available');
+          }
+        } catch {
+          // Fallback: use the preset list directly (works in static export)
+          providerList = getPresetProviders();
+        }
         if (cancelled) return;
-        setProviders(data.providers);
-        // Pick first provider that supports current audio mode
-        const visible = data.providers.filter((p: Provider) => p.supports.includes('sub'));
+        setProviders(providerList);
+        const visible = providerList.filter((p: Provider) => p.supports.includes('sub'));
         if (visible.length > 0) {
           setSelectedProvider(visible[0]);
         }
@@ -84,7 +95,7 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
       ? selectedProvider
       : null;
     if (!stillValid) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setSelectedProvider(pickDefaultProvider(providers, audioMode));
     }
   }, [audioMode, providers]);  
@@ -128,7 +139,7 @@ export function WatchView({ anime, episode, onExit }: WatchViewProps) {
   useEffect(() => {
     if (!selectedProvider) return;
     retryCountRef.current = 0;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     void resolveStream(audioMode, selectedProvider.codename);
   }, [selectedProvider?.id, audioMode, episode.id, resolveStream]);
 

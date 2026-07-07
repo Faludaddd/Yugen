@@ -18,6 +18,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Calendar, Clock, AlertCircle, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Anime } from '@/lib/streaming/types';
+import { getScheduleClient } from '@/lib/client-data';
 
 interface ScheduleEntry {
   anime: Anime;
@@ -55,15 +56,12 @@ export function ScheduleView({ onSelect }: ScheduleViewProps) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/anime?section=schedule', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const days = await getScheduleClient(7, 50);
         if (cancelled) return;
-        if (data.days && Array.isArray(data.days)) {
-          setDays(data.days);
-          // Pick "today" if available, else first day
+        if (days && Array.isArray(days)) {
+          setDays(days);
           const todayStr = new Date().toDateString();
-          const todayIdx = data.days.findIndex(
+          const todayIdx = days.findIndex(
             (d: ScheduleDay) => new Date(d.date).toDateString() === todayStr
           );
           setSelectedDayIdx(todayIdx >= 0 ? todayIdx : 0);

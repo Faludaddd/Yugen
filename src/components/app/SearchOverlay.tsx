@@ -19,6 +19,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, TrendingUp, Clock, ChevronRight, Play, Star, Tv } from 'lucide-react';
 import { useSettings } from '@/lib/settings';
+import { searchAnimeClient } from '@/lib/client-data';
 import type { Anime } from '@/lib/streaming/types';
 
 interface SearchOverlayProps {
@@ -84,10 +85,8 @@ export function SearchOverlay({ open, onClose, onSelectAnime }: SearchOverlayPro
     setLoading(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/anime?q=${encodeURIComponent(trimmed)}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const d = await res.json();
-        setResults(d.anime ?? []);
+        const anime = await searchAnimeClient(trimmed, 30);
+        setResults(anime);
       } catch {
         // ignore
       } finally {

@@ -13,6 +13,7 @@ import { Bookmark, Play, Trash2, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings, type ListStatus } from '@/lib/settings';
 import { AnimeCard } from '@/components/anime/AnimeCard';
+import { getAnimeByIdClient } from '@/lib/client-data';
 import type { Anime } from '@/lib/streaming/types';
 import { toast } from 'sonner';
 
@@ -46,10 +47,8 @@ export function MyListView({ onSelectAnime }: MyListViewProps) {
 
     idsToFetch.forEach(async (id) => {
       try {
-        const res = await fetch(`/api/anime/${id}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const d = await res.json();
-        setAnimeCache((prev) => ({ ...prev, [id]: d.anime as Anime }));
+        const anime = await getAnimeByIdClient(id);
+        if (anime) setAnimeCache((prev) => ({ ...prev, [id]: anime }));
       } catch {
         // ignore
       } finally {

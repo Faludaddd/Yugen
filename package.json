@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "next build",
+    "build:export": "BUILD_MODE=export next build",
+    "build:server": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "prisma db push",
@@ -14,7 +16,7 @@
     "cap:sync": "cap sync ios",
     "cap:open": "cap open ios",
     "cap:add:ios": "cap add ios",
-    "cap:build": "bun run build && bun run cap:sync",
+    "cap:build": "bun run build:export && bun run cap:sync",
     "icons": "python3 scripts/generate-icons.py"
   },
   "dependencies": {

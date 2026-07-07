@@ -14,7 +14,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.yugen.anime',
   appName: 'Yugen',
-  webDir: 'public',
+  webDir: 'out',  // Next.js static export output directory
   backgroundColor: '#080808',
   ios: {
     contentInset: 'always',
